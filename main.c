@@ -83,7 +83,6 @@ int main(int argc, char **argv)
 
 // -----------------  GAME CONTROL  -----------------------------------------------
 
-
 static void game_init(char *player_black_name, char *player_white_name) 
 {
     pthread_t tid;
@@ -114,9 +113,6 @@ static void game_init(char *player_black_name, char *player_white_name)
     board.pos[3][4] = REVERSI_BLACK;
     board.pos[4][3] = REVERSI_BLACK;
     board.pos[4][4] = REVERSI_WHITE;
-
-    // XXX temp
-    //memset(board.pos, REVERSI_BLACK, sizeof(board.pos));
 
     // create game_thread
     pthread_create(&tid, NULL, game_thread, NULL);
@@ -184,6 +180,16 @@ void apply_move(board_t *b, int color, int move, board_t *new_b)
 
 static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
+    #define RC_TO_LOC(r,c,loc) \
+        do { \
+            (loc).x = 2 + (c) * 125; \
+            (loc).y = 2 + (r) * 125; \
+            (loc).w = 123; \
+            (loc).h = 123; \
+        } while (0)
+
+    #define SDL_EVENT_SELECT_MOVE    (SDL_EVENT_USER_DEFINED + 0)   // length 64
+
     rect_t * pane = &pane_cx->pane;
 
     static texture_t white_circle;
@@ -206,20 +212,10 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     // -------- RENDER --------
     // ------------------------
 
-// xxx cleanup
-#define RC_TO_LOC(r,c,loc) \
-    do { \
-        loc.x = 2 + c * 125; \
-        loc.y = 2 + r * 125; \
-        loc.w = 123; \
-        loc.h = 123; \
-    } while (0)
-
-#define SDL_EVENT_SELECT_MOVE    (SDL_EVENT_USER_DEFINED + 0)   // length 64
-
     if (request == PANE_HANDLER_REQ_RENDER) {
         int r, c;
         rect_t loc;
+
         for (r = 0; r < 8; r++) {
             for (c = 0; c < 8; c++) {
                 RC_TO_LOC(r,c,loc);
@@ -235,39 +231,6 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
                                    SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
             }
         }
-
-
-#if 0
-        // AAA come back here
-        rect_t loc = {0, 0, 1002, 1002};
-        sdl_render_fill_rect(pane, &loc, GREEN);
-
-        int i;
-        for (i = 0; i < 9; i++) {
-            sdl_render_line(pane, 0, i*125+0, 1001, i*125+0, BLACK);
-            sdl_render_line(pane, 0, i*125+1, 1001, i*125+1, BLACK);
-        }
-        for (i = 0; i < 9; i++) {
-            sdl_render_line(pane, i*125+0, 0, i*125+0, 1001, BLACK);
-            sdl_render_line(pane, i*125+1, 0, i*125+1, 1001, BLACK);
-        }
-
-        int r, c, x, y;
-        for (r = 0; r < 8; r++) {
-            for (c = 0; c < 8; c++) {
-                if (board.pos[r][c] == REVERSI_BLACK) {
-                    x = c * 125 + 12;
-                    y = r * 125 + 12;
-                    sdl_render_texture(pane, x, y, black_circle);
-                } 
-                if (board.pos[r][c] == REVERSI_WHITE) {
-                    x = c * 125 + 12;
-                    y = r * 125 + 12;
-                    sdl_render_texture(pane, x, y, white_circle);
-                } 
-            }
-        }
-#endif
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
