@@ -28,6 +28,23 @@
 #define MOVE_PASS       -1
 #define MOVE_GAME_OVER  -2
 
+#define REVERSI_COLOR_STR(c) \
+    ((c) == REVERSI_BLACK ? "BLACK" : \
+     (c) == REVERSI_WHITE ? "WHITE" : \
+                            "????")
+
+#define MOVE_TO_RC(m,r,c) \
+    do { \
+        (r) = (m) >> 3; \
+        (c) = (m) & 7; \
+    } while (0)
+#define RC_TO_MOVE(r,c,m) \
+    do { \
+        (m) = ((r) << 3) + (c); \
+    } while (0)
+
+#define MS 1000L
+
 //
 // typedefs
 //
@@ -38,7 +55,7 @@ typedef struct {
 
 typedef struct {
     char name[100];
-    int (*get_move)(board_t *b);
+    int (*get_move)(board_t *b, int color);
 } player_t;
 
 //
@@ -46,6 +63,7 @@ typedef struct {
 //
 
 bool debug_enabled;
+int move_select;  // XXX name
 
 extern player_t human;
 extern player_t computer;
@@ -56,6 +74,8 @@ extern player_t computer;
 
 void get_possible_moves(board_t *b, int color, int *moves, int *max_moves);
 void apply_move(board_t *b, int color, int move, board_t *new_b);
+
+bool game_restart_requested(void);
 
 
 #endif

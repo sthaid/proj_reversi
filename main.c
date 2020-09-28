@@ -1,3 +1,5 @@
+// XXX make move a hex number
+
 #include <common.h>
 
 #include <util_misc.h>
@@ -15,21 +17,22 @@
 #define GAME_STATE_NOT_STARTED   0
 #define GAME_STATE_ACTIVE        1
 #define GAME_STATE_COMPLETE      2
+#define GAME_STATE_RESTART       3
 
 //
 // variables
 //
 
-static int       win_width   = DEFAULT_WIN_WIDTH;
-static int       win_height  = DEFAULT_WIN_HEIGHT;
+static int       win_width  = DEFAULT_WIN_WIDTH;
+static int       win_height = DEFAULT_WIN_HEIGHT;
 
 static int       game_state = GAME_STATE_NOT_STARTED;
 
 static board_t   board;
+static int       whose_turn;
 
 static player_t *player_black;
 static player_t *player_white;
-static player_t *whose_turn;
 
 static player_t *avail_players[] = { &human, &computer };
 
@@ -38,8 +41,9 @@ static player_t *avail_players[] = { &human, &computer };
 //
 
 static void game_init(char *player_black_name, char *player_white_name);
-static void game_start(void);
 static void *game_thread(void *cx);
+static void set_game_state(int new_game_state);
+static int get_game_state(void);
 
 static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event);
 
@@ -107,6 +111,15 @@ static void game_init(char *player_black_name, char *player_white_name)
     }
     INFO("BLACK = %s   WHITE = %s\n", player_black->name, player_white->name);
 
+    // create game_thread
+    pthread_create(&tid, NULL, game_thread, NULL);
+}
+
+static void *game_thread(void *cx)
+{
+    int  move;
+
+restart:
     // init board
     memset(board.pos, REVERSI_EMPTY, sizeof(board.pos));
     board.pos[3][3] = REVERSI_WHITE;
@@ -114,57 +127,54 @@ static void game_init(char *player_black_name, char *player_white_name)
     board.pos[4][3] = REVERSI_BLACK;
     board.pos[4][4] = REVERSI_WHITE;
 
-    // create game_thread
-    pthread_create(&tid, NULL, game_thread, NULL);
-}
-
-// xxx call from pane_hndlr, or could just have it autostart
-static void game_start(void)
-{
-    game_state = GAME_STATE_ACTIVE;
-}
-
-static void *game_thread(void *cx)
-{
-    int move;
-
-    // wait for start
-    while (game_state == GAME_STATE_NOT_STARTED) {
-        usleep(10000);
-    }
+    // xxx
+    whose_turn = 0;  // XXX
+    set_game_state(GAME_STATE_ACTIVE);
 
     // loop until game is finished
     // XXX may need a mutex around display update
     // XXX may want to slow down processing when human not invovled
     while (true) {
-        move = player_black->get_move(&board);  // xxx and color needed too
-        if (move == MOVE_GAME_OVER) {
-            break;
-        }
+        whose_turn = REVERSI_BLACK;
+        move = player_black->get_move(&board, REVERSI_BLACK);  // xxx and color needed too
+        if (game_restart_requested()) goto restart;
+        if (move == MOVE_GAME_OVER) break;
         apply_move(&board, REVERSI_BLACK, move, NULL);
-        whose_turn = player_white;
 
-        move = player_white->get_move(&board);
-        if (move == MOVE_GAME_OVER) {
-            break;
-        }
+        whose_turn = REVERSI_WHITE;
+        move = player_white->get_move(&board, REVERSI_WHITE);
+        if (game_restart_requested()) goto restart;
+        if (move == MOVE_GAME_OVER) break;
         apply_move(&board, REVERSI_WHITE, move, NULL);
-        whose_turn = player_black;
     }
 
     // game is over
-    game_state = GAME_STATE_COMPLETE;
-    whose_turn = NULL;
-
-    // pause forever
-    while (true) {
-        pause();
+    whose_turn = 0; //XXX
+    set_game_state(GAME_STATE_COMPLETE);
+    while (game_restart_requested() == false) {
+        usleep(10*MS);
     }
+    goto restart;
 
     return NULL;
 }
 
-// XXX later game_restart
+static void set_game_state(int new_game_state)
+{
+    game_state = new_game_state;
+    __sync_synchronize();
+}
+
+static int get_game_state(void)
+{
+    __sync_synchronize();
+    return game_state;
+}
+
+bool game_restart_requested(void)
+{
+    return get_game_state() == GAME_STATE_RESTART;
+}
 
 // -----------------  GAME UTILS  -------------------------------------------------
 
@@ -174,6 +184,10 @@ void get_possible_moves(board_t *b, int color, int *moves, int *max_moves)
 
 void apply_move(board_t *b, int color, int move, board_t *new_b)
 {
+    int r,c;
+
+    MOVE_TO_RC(move, r, c);
+    b->pos[r][c] = color;
 }
 
 // -----------------  DISPLAY  ----------------------------------------------------
@@ -188,7 +202,8 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
             (loc).h = 123; \
         } while (0)
 
-    #define SDL_EVENT_SELECT_MOVE    (SDL_EVENT_USER_DEFINED + 0)   // length 64
+    #define SDL_EVENT_GAME_RESTART   (SDL_EVENT_USER_DEFINED + 0)
+    #define SDL_EVENT_SELECT_MOVE    (SDL_EVENT_USER_DEFINED + 10)   // length 64
 
     rect_t * pane = &pane_cx->pane;
 
@@ -232,6 +247,20 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
             }
         }
 
+        sdl_render_text_and_register_event(
+            pane, 1030, ROW2Y(0,40), 40, "RESTART", LIGHT_BLUE, BLACK, 
+            SDL_EVENT_GAME_RESTART, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+
+        sdl_render_printf(
+            pane, 1030, ROW2Y(2,40), 40, WHITE, BLACK, 
+            "%s %s %s",
+            "BLACK", player_black->name, (whose_turn == REVERSI_BLACK ? "<=" : ""));
+
+        sdl_render_printf(
+            pane, 1030, ROW2Y(3,40), 40, WHITE, BLACK, 
+            "%s %s %s",
+            "WHITE", player_white->name, (whose_turn == REVERSI_WHITE ? "<=" : ""));
+            
         return PANE_HANDLER_RET_NO_ACTION;
     }
 
@@ -243,8 +272,11 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
         int rc = PANE_HANDLER_RET_NO_ACTION;
 
         switch (event->event_id) {
+        case SDL_EVENT_GAME_RESTART:
+            set_game_state(GAME_STATE_RESTART);
+            break;
         case SDL_EVENT_SELECT_MOVE ... SDL_EVENT_SELECT_MOVE+63: {
-            int move_select = event->event_id - SDL_EVENT_SELECT_MOVE;
+            move_select = event->event_id - SDL_EVENT_SELECT_MOVE;
             INFO("move_select = %d\n", move_select);
             break; }
         case 'q':  // quit
