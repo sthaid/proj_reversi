@@ -27,6 +27,7 @@
 
 #define MOVE_PASS       -1
 #define MOVE_GAME_OVER  -2
+#define MOVE_NONE       -9
 
 #define REVERSI_COLOR_STR(c) \
     ((c) == REVERSI_BLACK ? "BLACK" : \
@@ -51,12 +52,20 @@
 
 typedef struct {
     unsigned char pos[10][10];
+    int black_cnt;
+    int white_cnt;
 } board_t;
 
 typedef struct {
     char name[100];
-    int (*get_move)(board_t *b, int color);
+    int (*get_move)(board_t *b, int my_color);
 } player_t;
+
+typedef struct {
+    int move[64];
+    int max;
+    int color;
+} possible_moves_t;
 
 //
 // variables
@@ -72,7 +81,8 @@ extern player_t computer;
 // prototypes
 //
 
-bool apply_move(board_t *b, int my_color, int move);
 bool game_restart_requested(void);
+bool apply_move(board_t *b, int my_color, int move);
+void get_possible_moves(board_t *b, int my_color, possible_moves_t *pm);
 
 #endif
