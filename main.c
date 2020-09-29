@@ -38,7 +38,7 @@ static possible_moves_t
 static player_t *player_black;
 static player_t *player_white;
 
-static player_t *avail_players[] = { &human, &computer };
+static player_t *avail_players[] = { &human, &cpu_random };
 
 //
 // prototypes
@@ -207,7 +207,7 @@ bool apply_move(board_t *b, int my_color, int move)
     bool succ;
 
     succ = false;
-    other_color = (my_color == REVERSI_WHITE ? REVERSI_BLACK : REVERSI_WHITE);
+    other_color = (my_color == REVERSI_WHITE ? REVERSI_BLACK : REVERSI_WHITE);  // XXX use macro
     MOVE_TO_RC(move, r, c);
     if (b->pos[r][c] != REVERSI_EMPTY) {
         return false;

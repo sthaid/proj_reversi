@@ -21,9 +21,8 @@ static int human_get_move(board_t *b, int my_color)
     // if no possible moves and other color has no moves then return GAME_OVER
     if (pm.max == 0) {
         possible_moves_t other_pm;
-        int other_color = (my_color == REVERSI_WHITE ? REVERSI_BLACK : REVERSI_WHITE);
 
-        get_possible_moves(b, other_color, &other_pm);
+        get_possible_moves(b, OTHER_COLOR(my_color), &other_pm);
         if (other_pm.max == 0) {
             return MOVE_GAME_OVER;
         }

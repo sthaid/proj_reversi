@@ -46,6 +46,8 @@
 
 #define MS 1000L
 
+#define OTHER_COLOR(c)  ((c) == REVERSI_WHITE ? REVERSI_BLACK : REVERSI_WHITE)
+
 //
 // typedefs
 //
@@ -62,7 +64,7 @@ typedef struct {
 } player_t;
 
 typedef struct {
-    int move[64];
+    int move[64];  // xxx try unsigned char
     int max;
     int color;
 } possible_moves_t;
@@ -75,7 +77,7 @@ bool debug_enabled;
 int move_select;  // XXX name
 
 extern player_t human;
-extern player_t computer;
+extern player_t cpu_random;
 
 //
 // prototypes
