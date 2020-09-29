@@ -1,5 +1,3 @@
-// XXX make move a hex number
-
 #include <common.h>
 
 #include <util_misc.h>
@@ -20,6 +18,14 @@
 #define GAME_STATE_RESTART       3
 
 //
+// typedefs
+//
+
+typedef struct {
+    int pos[10][10];
+} possible_moves_t;
+
+//
 // variables
 //
 
@@ -30,6 +36,7 @@ static int       game_state = GAME_STATE_NOT_STARTED;
 
 static board_t   board;
 static int       whose_turn;
+static possible_moves_t possible_moves;  // xxx indent
 
 static player_t *player_black;
 static player_t *player_white;
@@ -44,6 +51,9 @@ static void game_init(char *player_black_name, char *player_white_name);
 static void *game_thread(void *cx);
 static void set_game_state(int new_game_state);
 static int get_game_state(void);
+
+static void get_possible_moves(int my_color);
+static void clear_possible_moves(void);
 
 static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event);
 
@@ -122,10 +132,11 @@ static void *game_thread(void *cx)
 restart:
     // init board
     memset(board.pos, REVERSI_EMPTY, sizeof(board.pos));
-    board.pos[3][3] = REVERSI_WHITE;
-    board.pos[3][4] = REVERSI_BLACK;
-    board.pos[4][3] = REVERSI_BLACK;
     board.pos[4][4] = REVERSI_WHITE;
+    board.pos[4][5] = REVERSI_BLACK;
+    board.pos[5][4] = REVERSI_BLACK;
+    board.pos[5][5] = REVERSI_WHITE;
+    // xxx other fields like number of white,black
 
     // xxx
     whose_turn = 0;  // XXX
@@ -135,22 +146,29 @@ restart:
     // XXX may need a mutex around display update
     // XXX may want to slow down processing when human not invovled
     while (true) {
+        // XXX make this a loop
         whose_turn = REVERSI_BLACK;
-        move = player_black->get_move(&board, REVERSI_BLACK);  // xxx and color needed too
+        get_possible_moves(REVERSI_BLACK);
+        move = player_black->get_move(&board, REVERSI_BLACK);
+        clear_possible_moves();
         if (game_restart_requested()) goto restart;
         if (move == MOVE_GAME_OVER) break;
-        apply_move(&board, REVERSI_BLACK, move, NULL);
+        apply_move(&board, REVERSI_BLACK, move);  // XXX check to ensure it succeeded
 
         whose_turn = REVERSI_WHITE;
+        get_possible_moves(REVERSI_WHITE);
         move = player_white->get_move(&board, REVERSI_WHITE);
+        clear_possible_moves();
         if (game_restart_requested()) goto restart;
         if (move == MOVE_GAME_OVER) break;
-        apply_move(&board, REVERSI_WHITE, move, NULL);
+        apply_move(&board, REVERSI_WHITE, move);
     }
 
     // game is over
     whose_turn = 0; //XXX
     set_game_state(GAME_STATE_COMPLETE);
+
+    // wait for request to restart
     while (game_restart_requested() == false) {
         usleep(10*MS);
     }
@@ -178,16 +196,94 @@ bool game_restart_requested(void)
 
 // -----------------  GAME UTILS  -------------------------------------------------
 
-void get_possible_moves(board_t *b, int color, int *moves, int *max_moves)
+static int r_incr_tbl[8] = {0, -1, -1, -1,  0,  1, 1, 1};
+static int c_incr_tbl[8] = {1,  1,  0, -1, -1, -1, 0, 1};
+
+bool apply_move(board_t *b, int my_color, int move)
 {
+    int  r, c, i, other_color;
+    bool succ;
+
+    succ = false;
+    other_color = (my_color == REVERSI_WHITE ? REVERSI_BLACK : REVERSI_WHITE);
+    MOVE_TO_RC(move, r, c);
+
+    if (b->pos[r][c] != REVERSI_EMPTY) {
+        // AAA or return failure
+        FATAL("pose[%d][%d] is not empty\n", r, c);
+    }
+
+    for (i = 0; i < 8; i++) {
+        int r_incr = r_incr_tbl[i];
+        int c_incr = c_incr_tbl[i];
+        int r_next = r + r_incr;
+        int c_next = c + c_incr;
+        int cnt    = 0;
+
+        while (b->pos[r_next][c_next] == other_color) {
+            r_next += r_incr;
+            c_next += c_incr;
+            cnt++;
+        }
+
+        if (cnt > 0 && b->pos[r_next][c_next] == my_color) {
+            succ = true;
+            for (i = 0; i < cnt; i++) {
+                r_next -= r_incr;
+                c_next -= c_incr;
+                b->pos[r_next][c_next] = my_color;
+            }
+        }
+    }
+
+    if (succ) {
+        b->pos[r][c] = my_color;
+    }
+
+    return succ;
 }
 
-void apply_move(board_t *b, int color, int move, board_t *new_b)
-{
-    int r,c;
+// -----------------  GAME UTILS - PRIVATE XXX  -----------------------------------
 
-    MOVE_TO_RC(move, r, c);
-    b->pos[r][c] = color;
+static void get_possible_moves(int my_color)
+{
+    int r, c, i, other_color;
+
+    clear_possible_moves();
+
+    other_color = (my_color == REVERSI_WHITE ? REVERSI_BLACK : REVERSI_WHITE);
+
+    for (r = 1; r <= 8; r++) {
+        for (c = 1; c <= 8; c++) {
+            if (board.pos[r][c] != REVERSI_EMPTY) {
+                continue;
+            }
+
+            for (i = 0; i < 8; i++) {
+                int r_incr = r_incr_tbl[i];
+                int c_incr = c_incr_tbl[i];
+                int r_next = r + r_incr;
+                int c_next = c + c_incr;
+                int cnt    = 0;
+
+                while (board.pos[r_next][c_next] == other_color) {
+                    r_next += r_incr;
+                    c_next += c_incr;
+                    cnt++;
+                }
+
+                if (cnt > 0 && board.pos[r_next][c_next] == my_color) {
+                    possible_moves.pos[r][c] = my_color;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+static void clear_possible_moves(void)
+{
+    memset(&possible_moves, 0, sizeof(possible_moves));
 }
 
 // -----------------  DISPLAY  ----------------------------------------------------
@@ -196,8 +292,8 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
 {
     #define RC_TO_LOC(r,c,loc) \
         do { \
-            (loc).x = 2 + (c) * 125; \
-            (loc).y = 2 + (r) * 125; \
+            (loc).x = 2 + ((c) - 1) * 125; \
+            (loc).y = 2 + ((r) - 1) * 125; \
             (loc).w = 123; \
             (loc).h = 123; \
         } while (0)
@@ -209,6 +305,8 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
 
     static texture_t white_circle;
     static texture_t black_circle;
+    static texture_t small_white_circle;
+    static texture_t small_black_circle;
 
     // ----------------------------
     // -------- INITIALIZE --------
@@ -220,6 +318,9 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
         white_circle = sdl_create_filled_circle_texture(50, WHITE);
         black_circle = sdl_create_filled_circle_texture(50, BLACK);
 
+        small_white_circle = sdl_create_filled_circle_texture(10, WHITE);
+        small_black_circle = sdl_create_filled_circle_texture(10, BLACK);
+
         return PANE_HANDLER_RET_NO_ACTION;
     }
 
@@ -228,21 +329,29 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
-        int r, c;
+        int r, c, move;
         rect_t loc;
 
-        for (r = 0; r < 8; r++) {
-            for (c = 0; c < 8; c++) {
+        for (r = 1; r <= 8; r++) {
+            for (c = 1; c <= 8; c++) {
                 RC_TO_LOC(r,c,loc);
                 sdl_render_fill_rect(pane, &loc, GREEN);
+
                 if (board.pos[r][c] == REVERSI_BLACK) {
                     sdl_render_texture(pane, loc.x+12, loc.y+12, black_circle);
-                } 
-                if (board.pos[r][c] == REVERSI_WHITE) {
+                } else if (board.pos[r][c] == REVERSI_WHITE) {
                     sdl_render_texture(pane, loc.x+12, loc.y+12, white_circle);
                 } 
+
+                if (possible_moves.pos[r][c] == REVERSI_BLACK) {
+                    sdl_render_texture(pane, loc.x+52, loc.y+52, small_black_circle);
+                } else if (possible_moves.pos[r][c] == REVERSI_WHITE) {
+                    sdl_render_texture(pane, loc.x+52, loc.y+52, small_white_circle);
+                } 
+
+                RC_TO_MOVE(r,c,move);
                 sdl_register_event(pane, &loc, 
-                                   SDL_EVENT_SELECT_MOVE + r * 8 + c, 
+                                   SDL_EVENT_SELECT_MOVE + move,
                                    SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
             }
         }
@@ -275,7 +384,7 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
         case SDL_EVENT_GAME_RESTART:
             set_game_state(GAME_STATE_RESTART);
             break;
-        case SDL_EVENT_SELECT_MOVE ... SDL_EVENT_SELECT_MOVE+63: {
+        case SDL_EVENT_SELECT_MOVE ... SDL_EVENT_SELECT_MOVE+100: {
             move_select = event->event_id - SDL_EVENT_SELECT_MOVE;
             INFO("move_select = %d\n", move_select);
             break; }

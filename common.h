@@ -21,7 +21,7 @@
 // defines
 //
 
-#define REVERSI_EMPTY  0
+#define REVERSI_EMPTY  0 //xxx names
 #define REVERSI_BLACK  1
 #define REVERSI_WHITE  2
 
@@ -35,12 +35,12 @@
 
 #define MOVE_TO_RC(m,r,c) \
     do { \
-        (r) = (m) >> 3; \
-        (c) = (m) & 7; \
+        (r) = (m) / 10; \
+        (c) = (m) % 10; \
     } while (0)
 #define RC_TO_MOVE(r,c,m) \
     do { \
-        (m) = ((r) << 3) + (c); \
+        (m) = ((r) * 10) + (c); \
     } while (0)
 
 #define MS 1000L
@@ -50,7 +50,7 @@
 //
 
 typedef struct {
-    unsigned char pos[8][8];
+    unsigned char pos[10][10];
 } board_t;
 
 typedef struct {
@@ -72,10 +72,7 @@ extern player_t computer;
 // prototypes
 //
 
-void get_possible_moves(board_t *b, int color, int *moves, int *max_moves);
-void apply_move(board_t *b, int color, int move, board_t *new_b);
-
+bool apply_move(board_t *b, int my_color, int move);
 bool game_restart_requested(void);
-
 
 #endif
