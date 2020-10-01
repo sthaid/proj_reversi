@@ -132,7 +132,6 @@ restart:
     board.pos[5][5] = REVERSI_WHITE;
     board.black_cnt = 2;
     board.white_cnt = 2;
-    // xxx other fields like number of white,black
 
     // xxx
     whose_turn = 0;  // XXX  XXX maybe can delete this
@@ -248,7 +247,7 @@ bool apply_move(board_t *b, int my_color, int move)
 
     if (succ) {
         b->pos[r][c] = my_color;
-        *my_color_cnt += 1;
+        *my_color_cnt++;
     }
 
     return succ;

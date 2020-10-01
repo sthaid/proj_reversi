@@ -1,6 +1,11 @@
 #include <common.h>
 
-// XXX should be odd
+// This should be odd, so that when the recursion limit is reached the other
+// player's position is being statically evaluated. This causes the board 
+// evalutation to choose the move based on minimizing the opponent's 
+// possible moves. If instead the recursion limit is even then the board
+// evaluation would choose the move based on maximizing the calling player's
+// possible moves.
 #define MAX_RECURSION_DEPTH  5
 
 static int cpu_get_move(board_t *b, int color);
@@ -38,7 +43,6 @@ static int eval(board_t *b, int my_color, int recursion_depth, int *ret_move)
         ret_move = &dummy_ret_move;
     }
 
-    // XXX use empty_cnt
     // if all squares are used then the game is over, so
     // return the static board evaluation metric;
     // note: this code is a performance optimization
@@ -110,6 +114,23 @@ static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_
     int piece_cnt_diff, corner_cnt_diff;
     int other_color = OTHER_COLOR(my_color);
 
+    // the static evaluation return value is:
+    // - when game is over:
+    //   - if winner:  1000 + piece_cnt_diff
+    //   - if loser:  -1000 + piece_cnt_diff  (note piece_cnt_diff is negative in this case)
+    // - when game is not over
+    //   - 100 * corner_cnt_diff + number_of_possible_moves
+    //     for example: 
+    //       . my_color is REVERSI_BLACK, 
+    //       . black has 2 corner, and white has 1 corner
+    //       . black has 5 possible moves
+    //     result = 100 * (2 - 1) + 5 = 105
+
+    // this evaluation algorithm gives:
+    // - first precedence to winning
+    // - second precedence to obtaining corners
+    // - third precedence to number of possible moved
+
     if (game_over) {
         piece_cnt_diff = (my_color == REVERSI_BLACK 
                           ? b->black_cnt - b->white_cnt 
@@ -127,5 +148,5 @@ static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_
     corner_cnt_diff += (b->pos[8][1] == my_color ? 1 : b->pos[8][1] == other_color ? -1 : 0);
     corner_cnt_diff += (b->pos[8][8] == my_color ? 1 : b->pos[8][8] == other_color ? -1 : 0);
 
-    return corner_cnt_diff * 100 + pm->max;
+    return 100 * corner_cnt_diff + pm->max;
 }
