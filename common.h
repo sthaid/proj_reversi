@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <libgen.h>
 #include <string.h>
+#include <limits.h>
 #include <pthread.h>
 #include <errno.h>
 #include <assert.h>
@@ -77,6 +78,7 @@ bool debug_enabled;
 int move_select;  // XXX name
 
 extern player_t human;
+extern player_t cpu;
 extern player_t cpu_random;
 
 //

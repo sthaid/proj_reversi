@@ -38,7 +38,7 @@ static possible_moves_t
 static player_t *player_black;
 static player_t *player_white;
 
-static player_t *avail_players[] = { &human, &cpu_random };
+static player_t *avail_players[] = { &human, &cpu, &cpu_random };
 
 //
 // prototypes

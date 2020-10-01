@@ -26,7 +26,7 @@ static int cpu_random_get_move(board_t *b, int my_color)
         get_possible_moves(b, OTHER_COLOR(my_color), &other_pm);
         return other_pm.max > 0 ? MOVE_PASS : MOVE_GAME_OVER;
     } else if (pm.max == 1) {
-        return pm.move[0];
+        return pm.move[0];  // XXX why here?
     }
 
     // there are 2 or more possible moves ...
