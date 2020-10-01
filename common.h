@@ -30,6 +30,8 @@
 #define MOVE_GAME_OVER  -2
 #define MOVE_NONE       -9
 
+#define BOARD_EVAL_NONE 999999
+
 #define REVERSI_COLOR_STR(c) \
     ((c) == REVERSI_BLACK ? "BLACK" : \
      (c) == REVERSI_WHITE ? "WHITE" : \
@@ -61,7 +63,7 @@ typedef struct {
 
 typedef struct {
     char name[100];
-    int (*get_move)(board_t *b, int my_color);
+    int (*get_move)(board_t *b, int my_color, int *b_eval);
 } player_t;
 
 typedef struct {

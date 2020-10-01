@@ -38,6 +38,9 @@ static possible_moves_t
 static player_t *player_black;
 static player_t *player_white;
 
+static int       player_black_board_eval = BOARD_EVAL_NONE;
+static int       player_white_board_eval = BOARD_EVAL_NONE;
+
 static player_t *avail_players[] = { &human, &cpu, &cpu_random };
 
 //
@@ -146,7 +149,7 @@ restart:
         // XXX make this a loop
         whose_turn = REVERSI_BLACK;
         get_possible_moves(&board, REVERSI_BLACK, &possible_moves);
-        move = player_black->get_move(&board, REVERSI_BLACK);
+        move = player_black->get_move(&board, REVERSI_BLACK, &player_black_board_eval);
         possible_moves.max = -1;
         if (game_restart_requested()) goto restart;
         if (move == MOVE_GAME_OVER) break;
@@ -154,7 +157,7 @@ restart:
 
         whose_turn = REVERSI_WHITE;
         get_possible_moves(&board, REVERSI_WHITE, &possible_moves);
-        move = player_white->get_move(&board, REVERSI_WHITE);
+        move = player_white->get_move(&board, REVERSI_WHITE, &player_white_board_eval);
         possible_moves.max = -1;
         if (game_restart_requested()) goto restart;
         if (move == MOVE_GAME_OVER) break;
@@ -247,7 +250,7 @@ bool apply_move(board_t *b, int my_color, int move)
 
     if (succ) {
         b->pos[r][c] = my_color;
-        *my_color_cnt++;
+        *my_color_cnt += 1;
     }
 
     return succ;
@@ -358,12 +361,16 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
             }
         }
 
-        for (i = 0; i < possible_moves.max; i++) {
-            MOVE_TO_RC(possible_moves.move[i], r, c);
-            RC_TO_LOC(r,c,loc);
-            sdl_render_texture(
-                pane, loc.x+52, loc.y+52, 
-                (possible_moves.color == REVERSI_BLACK ? small_black_circle : small_white_circle));
+        if ((whose_turn == REVERSI_BLACK && player_black == &human) ||
+            (whose_turn == REVERSI_WHITE && player_white == &human)) 
+        {
+            for (i = 0; i < possible_moves.max; i++) {
+                MOVE_TO_RC(possible_moves.move[i], r, c);
+                RC_TO_LOC(r,c,loc);
+                sdl_render_texture(
+                    pane, loc.x+52, loc.y+52, 
+                    (possible_moves.color == REVERSI_BLACK ? small_black_circle : small_white_circle));
+            }
         }
 
         for (r = 1; r <= 8; r++) {
@@ -384,11 +391,40 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
             pane, 1030, ROW2Y(2,40), 40, WHITE, BLACK, 
             "%s %s %2d %s",
             "BLACK", player_black->name, board.black_cnt, (whose_turn == REVERSI_BLACK ? "<=" : ""));
-
         sdl_render_printf(
             pane, 1030, ROW2Y(3,40), 40, WHITE, BLACK, 
             "%s %s %2d %s",
             "WHITE", player_white->name, board.white_cnt, (whose_turn == REVERSI_WHITE ? "<=" : ""));
+
+        if (player_black_board_eval != BOARD_EVAL_NONE) {
+            sdl_render_printf(
+                pane, 1030, ROW2Y(6,40), 40, WHITE, BLACK, 
+                "BLACK: % d", player_black_board_eval);
+        }
+        if (player_white_board_eval != BOARD_EVAL_NONE) {
+            sdl_render_printf(
+                pane, 1030, ROW2Y(7,40), 40, WHITE, BLACK, 
+                "WHITE: % d", player_white_board_eval);
+        }
+
+        if (get_game_state() == GAME_STATE_COMPLETE) {
+            sdl_render_printf(
+                pane, 1030, ROW2Y(9,40), 40, WHITE, BLACK, 
+                "GAME OVER");
+            if (board.black_cnt == board.white_cnt) {
+                sdl_render_printf(
+                    pane, 1030, ROW2Y(10,40), 40, WHITE, BLACK, 
+                    "TIE");
+            } else if (board.black_cnt > board.white_cnt) {
+                sdl_render_printf(
+                    pane, 1030, ROW2Y(10,40), 40, WHITE, BLACK, 
+                    "BLACK WINS BY %d", board.black_cnt - board.white_cnt);
+            } else {
+                sdl_render_printf(
+                    pane, 1030, ROW2Y(10,40), 40, WHITE, BLACK, 
+                    "WHITE WINS BY %d", board.white_cnt - board.black_cnt);
+            }
+        }
 
         if (possible_moves.max == 0) {
             char *str = (possible_moves.color == REVERSI_WHITE
@@ -414,11 +450,9 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
             break;
         case SDL_EVENT_SELECT_MOVE ... SDL_EVENT_SELECT_MOVE+100: {
             move_select = event->event_id - SDL_EVENT_SELECT_MOVE;
-            INFO("move_select = %d\n", move_select);
             break; }
         case SDL_EVENT_SELECT_MOVE_PASS:
             move_select = MOVE_PASS;
-            INFO("move_select = %d\n", move_select);
             break;
         case 'q':  // quit
             rc = PANE_HANDLER_RET_PANE_TERMINATE;

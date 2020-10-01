@@ -1,19 +1,20 @@
 #include <common.h>
 
-static int human_get_move(board_t *b, int color);
+static int human_get_move(board_t *b, int color, int *b_eval);
 
 player_t human = {"human", human_get_move};
 
 // --------------------------------------------------------------------------
 
 // xxx make const b
-static int human_get_move(board_t *b, int my_color)
+static int human_get_move(board_t *b, int my_color, int *b_eval)
 {
     bool             valid_move;
     possible_moves_t pm;
     int              move;
 
-    INFO("called for %s\n", REVERSI_COLOR_STR(my_color));
+    // there is no board evaluation performed
+    *b_eval = BOARD_EVAL_NONE;
 
     // get possible moves
     get_possible_moves(b, my_color, &pm);
@@ -21,7 +22,6 @@ static int human_get_move(board_t *b, int my_color)
     // if no possible moves and other color has no moves then return GAME_OVER
     if (pm.max == 0) {
         possible_moves_t other_pm;
-
         get_possible_moves(b, OTHER_COLOR(my_color), &other_pm);
         if (other_pm.max == 0) {
             return MOVE_GAME_OVER;
@@ -41,8 +41,6 @@ static int human_get_move(board_t *b, int my_color)
             }
             usleep(10*MS);
         }
-
-        INFO("GOT MOVE %d\n", move);
 
         // determine if move is valid
         if (pm.max == 0) {
