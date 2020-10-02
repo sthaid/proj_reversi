@@ -10,7 +10,8 @@
 #define DEFAULT_WIN_WIDTH    1500
 #define DEFAULT_WIN_HEIGHT   1002   // xxx 125 * 8  + 2
 
-#define MAX_AVAIL_PLAYERS    (sizeof(avail_players) / sizeof(void*))
+#define MAX_AVAIL_PLAYERS         (sizeof(avail_players) / sizeof(avail_players[0]))
+#define MAX_TOURNAMENT_PLAYERS    (sizeof(tournament_players) / sizeof(tournament_players[0]))
 
 #define GAME_STATE_NOT_STARTED   0
 #define GAME_STATE_ACTIVE        1
@@ -20,6 +21,19 @@
 //
 // typedefs
 //
+
+typedef struct {
+    bool enabled;
+    int  select_idx;
+    int  pb_idx;
+    int  pw_idx;
+} tournament_t;
+
+typedef struct {
+    player_t *player;
+    int       games_played;
+    double    games_won;
+} tournament_player_t;
 
 //
 // variables
@@ -44,6 +58,10 @@ static int       player_white_board_eval = BOARD_EVAL_NONE;
 static player_t *avail_players[] = { &human, 
                                      &cpu_1, &cpu_2, &cpu_3, &cpu_4, &cpu_5, &cpu_6,
                                      &cpu_random };
+
+static tournament_t        tournament;
+static tournament_player_t tournament_players[] = { {&cpu_1}, {&cpu_2}, {&cpu_3}, 
+                                                    {&cpu_4}, {&cpu_5}, {&cpu_6}  };
 
 //
 // prototypes
@@ -128,7 +146,21 @@ static void *game_thread(void *cx)
 {
     int  move;
 
+    // XXX temp
+    tournament.enabled = true;
+
 restart:
+    // if in tournament mode then pick 2 players
+    if (tournament.enabled) {
+        do {
+            tournament.pb_idx = (tournament.select_idx / MAX_TOURNAMENT_PLAYERS) % MAX_TOURNAMENT_PLAYERS;
+            tournament.pw_idx = (tournament.select_idx % MAX_TOURNAMENT_PLAYERS);
+            tournament.select_idx++;
+        } while (tournament.pb_idx == tournament.pw_idx);
+        player_black = tournament_players[tournament.pb_idx].player;
+        player_white = tournament_players[tournament.pw_idx].player;
+    }
+
     // init board
     memset(board.pos, REVERSI_EMPTY, sizeof(board.pos));
     board.pos[4][4] = REVERSI_WHITE;
@@ -142,7 +174,8 @@ restart:
     whose_turn = 0;  // XXX  XXX maybe can delete this
     set_game_state(GAME_STATE_ACTIVE);
 
-    INFO("GAME STARTING\n");
+    //INFO("GAME STARTING - BLACK=%s WHITE=%s\n",
+    //     player_black->name, player_white->name);
 
     // loop until game is finished
     // XXX may need a mutex around display update
@@ -167,11 +200,59 @@ restart:
     }
 
     // game is over
-    // XXX display game over and final score
+    // XXX display game over and final score   XXX and who wins
     // XXX AAA print score
-    INFO("GAME OVER black=%d white=%d\n", board.black_cnt, board.white_cnt);
+    bool black_should_win = (tournament.pb_idx > tournament.pw_idx);
+    bool white_should_win = (tournament.pw_idx > tournament.pb_idx);
+    bool wrong_winner = (black_should_win && board.black_cnt <= board.white_cnt) ||
+                        (white_should_win && board.white_cnt <= board.black_cnt);
+
+    INFO("GAME COMPLETE - BLACK=%s WHITE=%s - %d,%d - %s   %s\n",
+         player_black->name, player_white->name,
+         board.black_cnt, board.white_cnt, WINNER_STR(&board),
+         wrong_winner ? "WRONG_WINNER" : "");
+
     whose_turn = 0; //XXX
     set_game_state(GAME_STATE_COMPLETE);
+
+    // if in tournament mode
+    // - tally result
+    // - play next game
+    if (tournament.enabled) {
+        sleep(2);
+
+        tournament_players[tournament.pb_idx].games_played++;
+        tournament_players[tournament.pw_idx].games_played++;
+        if (board.black_cnt == board.white_cnt) {
+            tournament_players[tournament.pb_idx].games_won += 0.5;
+            tournament_players[tournament.pw_idx].games_won += 0.5;
+        } else if (board.black_cnt > board.white_cnt) {
+            tournament_players[tournament.pb_idx].games_won += 1;
+        } else {
+            tournament_players[tournament.pw_idx].games_won += 1;
+        }
+
+        //INFO("tsi %d\n", tournament.select_idx);
+        if ((tournament.select_idx % (MAX_TOURNAMENT_PLAYERS*MAX_TOURNAMENT_PLAYERS)) == 
+             (MAX_TOURNAMENT_PLAYERS*MAX_TOURNAMENT_PLAYERS-1))
+        {
+            int i;
+            char s[200], *p=s;
+            //char *p = s;
+            for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
+                p += sprintf(p, "%0.1f/%d  ", 
+                    tournament_players[i].games_won, tournament_players[i].games_played);
+            }
+            p += sprintf(p, " - ");
+            for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
+                p += sprintf(p, "%2.0f ",
+                        100. * tournament_players[i].games_won / tournament_players[i].games_played);
+            }
+            INFO("%s\n", s);
+        }
+
+        goto restart;
+    }
 
     // wait for request to restart
     while (game_restart_requested() == false) {

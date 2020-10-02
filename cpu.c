@@ -31,7 +31,7 @@ DEFPROC_CPU_GET_MOVE(2,54)
 DEFPROC_CPU_GET_MOVE(3,53)
 DEFPROC_CPU_GET_MOVE(4,52)
 DEFPROC_CPU_GET_MOVE(5,51)
-DEFPROC_CPU_GET_MOVE(6,50)
+DEFPROC_CPU_GET_MOVE(6,51)
 
 // -----------------  xxx  --------------------------------------------------
 

@@ -59,6 +59,11 @@
         (b) = temp;  \
     } while (0)
 
+#define WINNER_STR(b) \
+    ((b)->black_cnt == (b)->white_cnt ? "TIE"        : \
+     (b)->black_cnt >  (b)->white_cnt ? "BLACK-WINS" : \
+                                        "WHITE-WINS")
+
 //
 // typedefs
 //
