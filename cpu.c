@@ -11,24 +11,27 @@ static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_
 // -----------------  xxx  --------------------------------------------------
 
 // XXX also adjust the 52
+// XXX notes
+//  51 is okay for a high level, there are occasional long delays
+//  50 is okay for a high level, there are occasional long delays
 
-#define DEFPROC_CPU_GET_MOVE(mrd) \
+#define DEFPROC_CPU_GET_MOVE(mrd,xxx) \
 static int cpu_##mrd##_get_move(board_t *b, int my_color, int *b_eval) \
 { \
     int move; \
-    int max_recursion_depth = (b->black_cnt + b->white_cnt > 52 ? 100 : (mrd)); \
+    int max_recursion_depth = (b->black_cnt + b->white_cnt > (xxx) ? 100 : (mrd)); \
     *b_eval = eval(b, my_color, 0, max_recursion_depth, &move); \
     if (move == MOVE_NONE) FATAL("invalid move\n"); \
     return move; \
 } \
 player_t cpu_##mrd = {"CPU-" #mrd, cpu_##mrd##_get_move};
 
-DEFPROC_CPU_GET_MOVE(1)
-DEFPROC_CPU_GET_MOVE(2)
-DEFPROC_CPU_GET_MOVE(3)
-DEFPROC_CPU_GET_MOVE(4)
-DEFPROC_CPU_GET_MOVE(5)
-DEFPROC_CPU_GET_MOVE(6)
+DEFPROC_CPU_GET_MOVE(1,55)
+DEFPROC_CPU_GET_MOVE(2,54)
+DEFPROC_CPU_GET_MOVE(3,53)
+DEFPROC_CPU_GET_MOVE(4,52)
+DEFPROC_CPU_GET_MOVE(5,51)
+DEFPROC_CPU_GET_MOVE(6,50)
 
 // -----------------  xxx  --------------------------------------------------
 
