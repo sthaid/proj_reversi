@@ -88,7 +88,7 @@ bool debug_enabled;
 int move_select;  // XXX name
 
 extern player_t human;
-extern player_t cpu;
+extern player_t cpu_1, cpu_2, cpu_3, cpu_4, cpu_5, cpu_6;
 extern player_t cpu_random;
 
 //

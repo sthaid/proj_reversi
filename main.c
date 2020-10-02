@@ -41,7 +41,9 @@ static player_t *player_white;
 static int       player_black_board_eval = BOARD_EVAL_NONE;
 static int       player_white_board_eval = BOARD_EVAL_NONE;
 
-static player_t *avail_players[] = { &human, &cpu, &cpu_random };
+static player_t *avail_players[] = { &human, 
+                                     &cpu_1, &cpu_2, &cpu_3, &cpu_4, &cpu_5, &cpu_6,
+                                     &cpu_random };
 
 //
 // prototypes
@@ -101,10 +103,10 @@ static void game_init(char *player_black_name, char *player_white_name)
 
     // search for players matching the supplied names
     for (i = 0; i < MAX_AVAIL_PLAYERS; i++) {
-        if (strcmp(player_black_name, avail_players[i]->name) == 0) {
+        if (strcasecmp(player_black_name, avail_players[i]->name) == 0) {
             player_black = avail_players[i];
         }
-        if (strcmp(player_white_name, avail_players[i]->name) == 0) {
+        if (strcasecmp(player_white_name, avail_players[i]->name) == 0) {
             player_white = avail_players[i];
         }
     }

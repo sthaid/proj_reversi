@@ -2,7 +2,7 @@
 
 static int human_get_move(board_t *b, int color, int *b_eval);
 
-player_t human = {"human", human_get_move};
+player_t human = {"HUMAN", human_get_move};
 
 // --------------------------------------------------------------------------
 

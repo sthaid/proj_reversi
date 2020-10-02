@@ -2,7 +2,7 @@
 
 static int cpu_random_get_move(board_t *b, int color, int *b_eval);
 
-player_t cpu_random = {"cpu_random", cpu_random_get_move};
+player_t cpu_random = {"CPU-RANDOM", cpu_random_get_move};
 
 // -----------------  XXX  --------------------------------------------------
 

@@ -1,44 +1,34 @@
 #include <common.h>
 
-// This should be odd, so that when the recursion limit is reached the other
-// player's position is being statically evaluated. This causes the board 
-// evalutation to choose the move based on minimizing the opponent's 
-// possible moves. If instead the recursion limit is even then the board
-// evaluation would choose the move based on maximizing the calling player's
-// possible moves.
-// XXX is above correct?
-#define MAX_RECURSION_DEPTH  5
-
 typedef struct {
     int val;
     int move;
 } val_t;
 
-static int cpu_get_move(board_t *b, int color, int *b_eval);
 static int eval(board_t *b, int my_color, int recursion_depth, int max_recursion_depth, int *ret_move);
 static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_t *pm);
 
-player_t cpu = {"cpu", cpu_get_move};
-
 // -----------------  xxx  --------------------------------------------------
 
-static int cpu_get_move(board_t *b, int my_color, int *b_eval)
-{
-    int move;
-    int max_recursion_depth;
+// XXX also adjust the 52
 
-    // xxx define for 52
-    max_recursion_depth = (b->black_cnt + b->white_cnt > 52 
-                           ? 100 : MAX_RECURSION_DEPTH);
+#define DEFPROC_CPU_GET_MOVE(mrd) \
+static int cpu_##mrd##_get_move(board_t *b, int my_color, int *b_eval) \
+{ \
+    int move; \
+    int max_recursion_depth = (b->black_cnt + b->white_cnt > 52 ? 100 : (mrd)); \
+    *b_eval = eval(b, my_color, 0, max_recursion_depth, &move); \
+    if (move == MOVE_NONE) FATAL("invalid move\n"); \
+    return move; \
+} \
+player_t cpu_##mrd = {"CPU-" #mrd, cpu_##mrd##_get_move};
 
-    *b_eval = eval(b, my_color, 0, max_recursion_depth, &move);
-
-    if (move == MOVE_NONE) {
-        FATAL("invalid move\n");
-    }
-
-    return move;
-}
+DEFPROC_CPU_GET_MOVE(1)
+DEFPROC_CPU_GET_MOVE(2)
+DEFPROC_CPU_GET_MOVE(3)
+DEFPROC_CPU_GET_MOVE(4)
+DEFPROC_CPU_GET_MOVE(5)
+DEFPROC_CPU_GET_MOVE(6)
 
 // -----------------  xxx  --------------------------------------------------
 
