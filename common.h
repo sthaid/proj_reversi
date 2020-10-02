@@ -51,6 +51,14 @@
 
 #define OTHER_COLOR(c)  ((c) == REVERSI_WHITE ? REVERSI_BLACK : REVERSI_WHITE)
 
+#define SWAP(a,b) \
+    do { \
+        typeof(a) temp;  \
+        temp = (a);  \
+        (a) = (b);  \
+        (b) = temp;  \
+    } while (0)
+
 //
 // typedefs
 //

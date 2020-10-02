@@ -6,7 +6,13 @@
 // possible moves. If instead the recursion limit is even then the board
 // evaluation would choose the move based on maximizing the calling player's
 // possible moves.
+// XXX is above correct?
 #define MAX_RECURSION_DEPTH  5
+
+typedef struct {
+    int val;
+    int move;
+} val_t;
 
 static int cpu_get_move(board_t *b, int color, int *b_eval);
 static int eval(board_t *b, int my_color, int recursion_depth, int max_recursion_depth, int *ret_move);
@@ -39,8 +45,9 @@ static int cpu_get_move(board_t *b, int my_color, int *b_eval)
 static int eval(board_t *b, int my_color, int recursion_depth, int max_recursion_depth, int *ret_move)
 {
     int              other_color = OTHER_COLOR(my_color);
-    int              min_val, val[64], i, best_move, dummy_ret_move;
+    int              i, min_val, min_val_cnt, dummy_ret_move;
     possible_moves_t pm;
+    val_t            val[64];
 
     // if caller doesn't want ret_move return value then
     // set ret_move to point to dummy variable
@@ -87,30 +94,49 @@ static int eval(board_t *b, int my_color, int recursion_depth, int max_recursion
         return -v;
     }
 
-    // loop over possible moves
-    // - make a copy of the board, and apply the move to it
-    // - obtaine the board eval metric via recursive call
+    // loop over possible moves ...
+    min_val = INT_MAX;
     for (i = 0; i < pm.max; i++) {
+        // make a copy of the board, and apply the move to it,
+        // this is now the board that the oppenent needs to choose a move from
         board_t new_board = *b;
         apply_move(&new_board, my_color, pm.move[i]);
-        val[i] = eval(&new_board, other_color, recursion_depth+1, max_recursion_depth, NULL);
-    }
 
-    // using the array of board eval metrics obtained above, find the
-    // minimum; the minimum is chosen because this player is chosing the
-    // move that gives the opponent its worst position
-    min_val = INT_MAX;
-    best_move = MOVE_NONE;
-    for (i = 0; i < pm.max; i++) {
-        if (val[i] < min_val) {
-            min_val   = val[i];
-            best_move = pm.move[i];
+        // obtaine the opponent's board eval metric via recursive call to eval
+        val[i].val = eval(&new_board, other_color, recursion_depth+1, max_recursion_depth, NULL);
+        val[i].move = pm.move[i];
+
+        // keep track of the min_val, which is used by the code below
+        // note: the min_val is used because this player is chosing the
+        //       move that gives the opponent its worst position
+        if (val[i].val < min_val) {
+            min_val = val[i].val;
         }
     }
 
-    // return the board eval metric for this player's best_move
-    // which was chosen by the above loop
-    *ret_move = best_move;
+    // re-order the array of board eval metrics placing all min_val entries at the begining
+    min_val_cnt = 0;
+    for (i = 0; i < pm.max; i++) {
+        if (val[i].val == min_val) {
+            SWAP(val[i], val[min_val_cnt]);
+            min_val_cnt++;
+        }
+    }
+
+    // XXX temp test code
+    if (min_val_cnt == 0) {
+        FATAL("XXX min_val_cnt = 0 \n");
+    }
+    for (i = 0; i < min_val_cnt; i++) {
+        if (val[i].val != min_val) {
+            FATAL("XXX val[%d].val=%d min_val=%d\n",
+              i, val[i].val, min_val);
+        }
+    }
+
+    // return move randomly selected from the choices which have board eval equal min_val
+    i = (min_val_cnt == 1 ? 0 : (random() % min_val_cnt));
+    *ret_move = val[i].move;
     return -min_val;
 }
 
