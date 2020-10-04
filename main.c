@@ -7,72 +7,80 @@
 // defines
 //
 
-#define DEFAULT_WIN_WIDTH    1500
+#define DEFAULT_WIN_WIDTH    1920
 #define DEFAULT_WIN_HEIGHT   1002   // xxx 125 * 8  + 2
 
 #define MAX_AVAIL_PLAYERS         (sizeof(avail_players) / sizeof(avail_players[0]))
 #define MAX_TOURNAMENT_PLAYERS    (sizeof(tournament_players) / sizeof(tournament_players[0]))
 
-#define GAME_STATE_NOT_STARTED   0
-#define GAME_STATE_ACTIVE        1
-#define GAME_STATE_COMPLETE      2
-#define GAME_STATE_RESTART       3
+#define GAME_STATE_RESET         0
+#define GAME_STATE_START         1
+#define GAME_STATE_ACTIVE        2
+#define GAME_STATE_COMPLETE      3
+
+#define FONTSZ  70   // xxx use 50 for linux later
+
+// xxx solve name for WHITE and BLACK problem
 
 //
 // typedefs
 //
 
 typedef struct {
-    bool enabled;
-    int  select_idx;
-    int  pb_idx;
-    int  pw_idx;
+    bool    enabled;
+    int     select_idx;
+    int     pb_idx;
+    int     pw_idx;
+    int     games_played[20];   //xxx
+    double  games_won[20];
 } tournament_t;
-
-typedef struct {
-    player_t *player;
-    int       games_played;
-    double    games_won;
-} tournament_player_t;
 
 //
 // variables
+// xxx may need to re-init all of these for android
+// xxx make some of these const
 //
 
-static int       win_width  = DEFAULT_WIN_WIDTH;
-static int       win_height = DEFAULT_WIN_HEIGHT;
+static int                 win_width  = DEFAULT_WIN_WIDTH;
+static int                 win_height = DEFAULT_WIN_HEIGHT;
 
-static int       game_state = GAME_STATE_NOT_STARTED;
+static int                 game_state = GAME_STATE_RESET;
 
-static board_t   board;
-static int       whose_turn;
-static possible_moves_t 
-                 possible_moves;  // xxx indent
+static board_t             board;
+static int                 whose_turn;
+static possible_moves_t    possible_moves;
 
-static player_t *player_black;
-static player_t *player_white;
-
-static int       player_black_board_eval = BOARD_EVAL_NONE;
-static int       player_white_board_eval = BOARD_EVAL_NONE;
-
-static player_t *avail_players[] = { &human, 
-                                     &cpu_1, &cpu_2, &cpu_3, &cpu_4, &cpu_5, &cpu_6,
-                                     &cpu_random };
+static player_t           *player_black;
+static player_t           *player_white;
+static player_t           *game_mode_player_black;  // xxx try to not have this global
+static player_t           *game_mode_player_white;
+static player_t           *avail_players[] = { &human, 
+                                               &cpu_1, &cpu_2, &cpu_3, &cpu_4, &cpu_5, &cpu_6,
+                                               &cpu_random };
 
 static tournament_t        tournament;
-static tournament_player_t tournament_players[] = { {&cpu_1}, {&cpu_2}, {&cpu_3}, 
-                                                    {&cpu_4}, {&cpu_5}, {&cpu_6}  };
+static player_t           *tournament_players[] = { &cpu_1, &cpu_2, &cpu_3, &cpu_4, &cpu_5, &cpu_6 };
+
+static int                 player_black_board_eval = BOARD_EVAL_NONE;  // xxx tbd
+static int                 player_white_board_eval = BOARD_EVAL_NONE;  // xxx tbd
 
 //
 // prototypes
 //
 
-static void game_init(char *player_black_name, char *player_white_name);
+static void initialize(void);
+
 static void *game_thread(void *cx);
+static void init_board(void);
 static void set_game_state(int new_game_state);
 static int get_game_state(void);
 
-static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event);
+static void tournament_get_players(player_t **pb, player_t **pw);
+static void tournament_tally_game_result(void);
+
+static int pane_hndlr(pane_cx_t *pane_cx, int request, void * init_params, sdl_event_t * event);
+static void REG_EVENT(pane_cx_t *pane_cx, double r, double c, int event, char *fmt, ...)  // xxx name  
+                __attribute__ ((format (printf, 5, 6)));
 
 // -----------------  MAIN  -------------------------------------------------------
 
@@ -81,15 +89,11 @@ int main(int argc, char **argv)
     int requested_win_width;
     int requested_win_height;
 
-    // verfify 2 player names are supplied
-    if (argc != 3) {
-        FATAL("argc=%d\n", argc);
-    }
-
-    // init game control software
-    game_init(argv[1], argv[2]);
+    // initialize
+    initialize();
 
     // init sdl
+    // xxx use full screen for android,  use default or -g wxh for linux
     requested_win_width  = win_width;
     requested_win_height = win_height;
     if (sdl_init(&win_width, &win_height, false, false) < 0) {
@@ -97,7 +101,7 @@ int main(int argc, char **argv)
     }
     INFO("requested win_width=%d win_height=%d\n", requested_win_width, requested_win_height);
     INFO("actual    win_width=%d win_height=%d\n", win_width, win_height);
-    // XXX must be requested
+    // xxx must be requested  - NOT LATER
 
     // run the pane manger, this is the runtime loop
     sdl_pane_manager(
@@ -112,56 +116,105 @@ int main(int argc, char **argv)
     return 0;
 }
 
-// -----------------  GAME CONTROL  -----------------------------------------------
+// -----------------  INITIALIZE  -------------------------------------------------
 
-static void game_init(char *player_black_name, char *player_white_name) 
+static void initialize(void)
 {
     pthread_t tid;
-    int i;
 
-    // search for players matching the supplied names
-    for (i = 0; i < MAX_AVAIL_PLAYERS; i++) {
-        if (strcasecmp(player_black_name, avail_players[i]->name) == 0) {
-            player_black = avail_players[i];
-        }
-        if (strcasecmp(player_white_name, avail_players[i]->name) == 0) {
-            player_white = avail_players[i];
-        }
-    }
+    // xxx use config file
+    game_mode_player_black = &human;
+    game_mode_player_white = &cpu_5;
 
-    // if player_black or player_white has not been set then fatal error
-    if (player_black == NULL) {
-        FATAL("XXX\n");
-    }
-    if (player_white == NULL) {
-        FATAL("XXX\n");
-    }
-    INFO("BLACK = %s   WHITE = %s\n", player_black->name, player_white->name);
+    // xxx
+    player_black = game_mode_player_black;
+    player_white = game_mode_player_white;
 
+    // xxx init all vars (maybe needed on android)
+    
     // create game_thread
     pthread_create(&tid, NULL, game_thread, NULL);
 }
 
+// -----------------  GAME THREAD  ------------------------------------------------
+
 static void *game_thread(void *cx)
 {
     int  move;
-
-    // XXX temp
-    tournament.enabled = true;
+    bool tournament_game;
 
 restart:
-    // if in tournament mode then pick 2 players
-    if (tournament.enabled) {
-        do {
-            tournament.pb_idx = (tournament.select_idx / MAX_TOURNAMENT_PLAYERS) % MAX_TOURNAMENT_PLAYERS;
-            tournament.pw_idx = (tournament.select_idx % MAX_TOURNAMENT_PLAYERS);
-            tournament.select_idx++;
-        } while (tournament.pb_idx == tournament.pw_idx);
-        player_black = tournament_players[tournament.pb_idx].player;
-        player_white = tournament_players[tournament.pw_idx].player;
+    // init board
+    init_board();
+
+    // game state must be RESET or START
+    if (get_game_state() != GAME_STATE_RESET && get_game_state() != GAME_STATE_START) {
+        FATAL("invalid game_state %d\n", get_game_state());
     }
 
-    // init board
+    // wait for GAME_STATE_START
+    while (get_game_state() != GAME_STATE_START) {
+        usleep(10*MS);
+    }
+
+    // get the 2 players
+    tournament_game = tournament.enabled;
+    if (tournament_game) {
+        tournament_get_players(&player_black, &player_white);
+    } else {
+        player_black = game_mode_player_black;
+        player_white = game_mode_player_white;
+    }
+
+    // xxx comment
+    whose_turn = 0;  // xxx use define for NO_TURN
+    set_game_state(GAME_STATE_ACTIVE);
+
+    // loop until game is finished
+    while (true) {
+        whose_turn = REVERSI_BLACK;
+        get_possible_moves(&board, REVERSI_BLACK, &possible_moves);
+        move = player_black->get_move(&board, REVERSI_BLACK, &player_black_board_eval);
+        possible_moves.max = -1;
+        if (get_game_state() != GAME_STATE_ACTIVE) goto restart;
+        if (move == MOVE_GAME_OVER) break;
+        apply_move(&board, REVERSI_BLACK, move);
+
+        whose_turn = REVERSI_WHITE;
+        get_possible_moves(&board, REVERSI_WHITE, &possible_moves);
+        move = player_white->get_move(&board, REVERSI_WHITE, &player_white_board_eval);
+        possible_moves.max = -1;
+        if (get_game_state() != GAME_STATE_ACTIVE) goto restart;
+        if (move == MOVE_GAME_OVER) break;
+        apply_move(&board, REVERSI_WHITE, move);
+    }
+
+    // game is over
+    whose_turn = 0; //xxx  use define for no-turn
+    set_game_state(GAME_STATE_COMPLETE);
+
+    // if in tournament mode
+    // - tally result
+    // - play next game
+    // else 
+    //   xxx comment
+    // endif
+    if (tournament_game) {
+        tournament_tally_game_result();
+        set_game_state(tournament.enabled ? GAME_STATE_START : GAME_STATE_RESET);
+        goto restart;
+    } else {
+        while (get_game_state() == GAME_STATE_COMPLETE) {
+            usleep(10*MS);
+        }
+        goto restart;
+    }
+
+    return NULL;
+}
+
+static void init_board(void)
+{
     memset(board.pos, REVERSI_EMPTY, sizeof(board.pos));
     board.pos[4][4] = REVERSI_WHITE;
     board.pos[4][5] = REVERSI_BLACK;
@@ -169,98 +222,6 @@ restart:
     board.pos[5][5] = REVERSI_WHITE;
     board.black_cnt = 2;
     board.white_cnt = 2;
-
-    // xxx
-    whose_turn = 0;  // XXX  XXX maybe can delete this
-    set_game_state(GAME_STATE_ACTIVE);
-
-    //INFO("GAME STARTING - BLACK=%s WHITE=%s\n",
-    //     player_black->name, player_white->name);
-
-    // loop until game is finished
-    // XXX may need a mutex around display update
-    // XXX may want to slow down processing when human not invovled
-    while (true) {
-        // XXX make this a loop
-        whose_turn = REVERSI_BLACK;
-        get_possible_moves(&board, REVERSI_BLACK, &possible_moves);
-        move = player_black->get_move(&board, REVERSI_BLACK, &player_black_board_eval);
-        possible_moves.max = -1;
-        if (game_restart_requested()) goto restart;
-        if (move == MOVE_GAME_OVER) break;
-        apply_move(&board, REVERSI_BLACK, move);  // XXX check to ensure it succeeded
-
-        whose_turn = REVERSI_WHITE;
-        get_possible_moves(&board, REVERSI_WHITE, &possible_moves);
-        move = player_white->get_move(&board, REVERSI_WHITE, &player_white_board_eval);
-        possible_moves.max = -1;
-        if (game_restart_requested()) goto restart;
-        if (move == MOVE_GAME_OVER) break;
-        apply_move(&board, REVERSI_WHITE, move);
-    }
-
-    // game is over
-    // XXX display game over and final score   XXX and who wins
-    // XXX AAA print score
-    bool black_should_win = (tournament.pb_idx > tournament.pw_idx);
-    bool white_should_win = (tournament.pw_idx > tournament.pb_idx);
-    bool wrong_winner = (black_should_win && board.black_cnt <= board.white_cnt) ||
-                        (white_should_win && board.white_cnt <= board.black_cnt);
-
-    INFO("GAME COMPLETE - BLACK=%s WHITE=%s - %d,%d - %s   %s\n",
-         player_black->name, player_white->name,
-         board.black_cnt, board.white_cnt, WINNER_STR(&board),
-         wrong_winner ? "WRONG_WINNER" : "");
-
-    whose_turn = 0; //XXX
-    set_game_state(GAME_STATE_COMPLETE);
-
-    // if in tournament mode
-    // - tally result
-    // - play next game
-    if (tournament.enabled) {
-        sleep(2);
-
-        tournament_players[tournament.pb_idx].games_played++;
-        tournament_players[tournament.pw_idx].games_played++;
-        if (board.black_cnt == board.white_cnt) {
-            tournament_players[tournament.pb_idx].games_won += 0.5;
-            tournament_players[tournament.pw_idx].games_won += 0.5;
-        } else if (board.black_cnt > board.white_cnt) {
-            tournament_players[tournament.pb_idx].games_won += 1;
-        } else {
-            tournament_players[tournament.pw_idx].games_won += 1;
-        }
-
-        //INFO("tsi %d\n", tournament.select_idx);
-        if ((tournament.select_idx % (MAX_TOURNAMENT_PLAYERS*MAX_TOURNAMENT_PLAYERS)) == 
-             (MAX_TOURNAMENT_PLAYERS*MAX_TOURNAMENT_PLAYERS-1))
-        {
-            int i;
-            char s[200], *p=s;
-            //char *p = s;
-            for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
-                p += sprintf(p, "%0.1f/%d  ", 
-                    tournament_players[i].games_won, tournament_players[i].games_played);
-            }
-            p += sprintf(p, " - ");
-            for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
-                p += sprintf(p, "%2.0f ",
-                        100. * tournament_players[i].games_won / tournament_players[i].games_played);
-            }
-            INFO("%s\n", s);
-        }
-
-        goto restart;
-    }
-
-    // wait for request to restart
-    while (game_restart_requested() == false) {
-        usleep(10*MS);
-    }
-    goto restart;
-
-    return NULL;
 }
 
 static void set_game_state(int new_game_state)
@@ -275,9 +236,66 @@ static int get_game_state(void)
     return game_state;
 }
 
-bool game_restart_requested(void)
+static void tournament_get_players(player_t **pb, player_t **pw)
 {
-    return get_game_state() == GAME_STATE_RESTART;
+    do {
+        tournament.pb_idx = (tournament.select_idx / MAX_TOURNAMENT_PLAYERS) % MAX_TOURNAMENT_PLAYERS;
+        tournament.pw_idx = (tournament.select_idx % MAX_TOURNAMENT_PLAYERS);
+        tournament.select_idx++;
+    } while (tournament.pb_idx == tournament.pw_idx);
+
+    *pb = tournament_players[tournament.pb_idx];
+    *pw = tournament_players[tournament.pw_idx];
+}
+
+static void tournament_tally_game_result(void)
+{
+#if 0
+    // xxx display game over and final score   xxx and who wins
+    // xxx print score
+    bool black_should_win = (tournament.pb_idx > tournament.pw_idx);
+    bool white_should_win = (tournament.pw_idx > tournament.pb_idx);
+    bool wrong_winner = (black_should_win && board.black_cnt <= board.white_cnt) ||
+                        (white_should_win && board.white_cnt <= board.black_cnt);
+    INFO("GAME COMPLETE - BLACK=%s WHITE=%s - %d,%d - %s   %s\n",
+         player_black->name, player_white->name,
+         board.black_cnt, board.white_cnt, WINNER_STR(&board),
+         wrong_winner ? "WRONG_WINNER" : "");
+#endif
+
+    sleep(1);
+
+    tournament.games_played[tournament.pb_idx]++;
+    tournament.games_played[tournament.pw_idx]++;
+    if (board.black_cnt == board.white_cnt) {
+        tournament.games_won[tournament.pb_idx] += 0.5;
+        tournament.games_won[tournament.pw_idx] += 0.5;
+    } else if (board.black_cnt > board.white_cnt) {
+        tournament.games_won[tournament.pb_idx] += 1;
+    } else {
+        tournament.games_won[tournament.pw_idx] += 1;
+    }
+
+#if 0  // xxx publish result at end of each round
+    //INFO("tsi %d\n", tournament.select_idx);
+    if ((tournament.select_idx % (MAX_TOURNAMENT_PLAYERS*MAX_TOURNAMENT_PLAYERS)) == 
+         (MAX_TOURNAMENT_PLAYERS*MAX_TOURNAMENT_PLAYERS-1))
+    {
+        int i;
+        char s[200], *p=s;
+        //char *p = s;
+        for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
+            p += sprintf(p, "%0.1f/%d  ", 
+                tournament_players[i].games_won, tournament_players[i].games_played);
+        }
+        p += sprintf(p, " - ");
+        for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
+            p += sprintf(p, "%2.0f ",
+                    100. * tournament_players[i].games_won / tournament_players[i].games_played);
+        }
+        INFO("%s\n", s);
+    }
+#endif
 }
 
 // -----------------  GAME UTILS  -------------------------------------------------
@@ -292,7 +310,7 @@ bool apply_move(board_t *b, int my_color, int move)
     bool succ;
 
     succ = false;
-    other_color = (my_color == REVERSI_WHITE ? REVERSI_BLACK : REVERSI_WHITE);  // XXX use macro
+    other_color = OTHER_COLOR(my_color);
     MOVE_TO_RC(move, r, c);
     if (b->pos[r][c] != REVERSI_EMPTY) {
         return false;
@@ -345,8 +363,7 @@ void get_possible_moves(board_t *b, int my_color, possible_moves_t *pm)
 
     pm->max = 0;
     pm->color = my_color;
-
-    other_color = (my_color == REVERSI_WHITE ? REVERSI_BLACK : REVERSI_WHITE);
+    other_color = OTHER_COLOR(my_color);
 
     for (r = 1; r <= 8; r++) {
         for (c = 1; c <= 8; c++) {
@@ -377,8 +394,19 @@ void get_possible_moves(board_t *b, int my_color, possible_moves_t *pm)
     }
 }
 
+bool game_cancelled(void)
+{
+    // xxx use setjmp in cpu.c
+    return get_game_state() != GAME_STATE_ACTIVE;
+}
+
 // -----------------  DISPLAY  ----------------------------------------------------
 
+// xxx cleanup
+#define CTLX  1015
+#define CTLY  0
+
+// xxx comments on the modes and sketch the displays
 static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
     #define RC_TO_LOC(r,c,loc) \
@@ -389,9 +417,24 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
             (loc).h = 123; \
         } while (0)
 
-    #define SDL_EVENT_GAME_RESTART      (SDL_EVENT_USER_DEFINED + 0)
-    #define SDL_EVENT_SELECT_MOVE_PASS  (SDL_EVENT_USER_DEFINED + 1)
-    #define SDL_EVENT_SELECT_MOVE       (SDL_EVENT_USER_DEFINED + 10)   // length 100
+    // global events
+    #define SDL_EVENT_HELP                    (SDL_EVENT_USER_DEFINED + 0)
+    #define SDL_EVENT_QUIT_PGM                (SDL_EVENT_USER_DEFINED + 1)
+
+    // tournament mode events
+    #define SDL_EVENT_CHOOSE_GAME_MODE        (SDL_EVENT_USER_DEFINED + 10)
+
+    // game mode events
+    #define SDL_EVENT_CHOOSE_TOURNAMENT_MODE  (SDL_EVENT_USER_DEFINED + 20)
+    #define SDL_EVENT_GAME_START              (SDL_EVENT_USER_DEFINED + 21)
+    #define SDL_EVENT_GAME_RESET              (SDL_EVENT_USER_DEFINED + 22)
+    #define SDL_EVENT_HUMAN_MOVE_PASS         (SDL_EVENT_USER_DEFINED + 23)
+    #define SDL_EVENT_HUMAN_MOVE_SELECT       (SDL_EVENT_USER_DEFINED + 24)   // length 100
+
+    // game mode, choose player events
+    #define SDL_EVENT_CHOOSE_BLACK_PLAYER     (SDL_EVENT_USER_DEFINED + 130)
+    #define SDL_EVENT_CHOOSE_WHITE_PLAYER     (SDL_EVENT_USER_DEFINED + 131)
+    #define SDL_EVENT_CHOOSE_PLAYER_SELECT    (SDL_EVENT_USER_DEFINED + 132)   // legnth MAX_AVAIL_PLAYERS
 
     rect_t * pane = &pane_cx->pane;
 
@@ -399,6 +442,9 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     static texture_t black_circle;
     static texture_t small_white_circle;
     static texture_t small_black_circle;
+
+    static bool help_mode;   // xxx all need to be initialized, I think - check this
+    static int  choose_player_mode;
 
     // ----------------------------
     // -------- INITIALIZE --------
@@ -424,7 +470,7 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
         int r, c, i, move;
         rect_t loc;
 
-        // XXX comments
+        // draw the 64 green playing squares
         for (r = 1; r <= 8; r++) {
             for (c = 1; c <= 8; c++) {
                 RC_TO_LOC(r,c,loc);
@@ -432,6 +478,7 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
             }
         }
 
+        // draw the black and white pieces 
         for (r = 1; r <= 8; r++) {
             for (c = 1; c <= 8; c++) {
                 RC_TO_LOC(r,c,loc);
@@ -444,77 +491,119 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
             }
         }
 
-        if ((whose_turn == REVERSI_BLACK && player_black == &human) ||
-            (whose_turn == REVERSI_WHITE && player_white == &human)) 
-        {
-            for (i = 0; i < possible_moves.max; i++) {
-                MOVE_TO_RC(possible_moves.move[i], r, c);
-                RC_TO_LOC(r,c,loc);
-                sdl_render_texture(
-                    pane, loc.x+52, loc.y+52, 
-                    (possible_moves.color == REVERSI_BLACK ? small_black_circle : small_white_circle));
+        // xxx make these routines ...
+
+
+        // global events
+        if (!help_mode) {
+            REG_EVENT(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
+            REG_EVENT(pane_cx, -1, -4, SDL_EVENT_QUIT_PGM, "QUIT");
+        }
+
+        if (help_mode) {
+            // help mode ...
+
+            // xxx display help screen
+            // - mouse wheel scroll
+            // - BACK event at lower right
+
+        } else if (tournament.enabled) {
+            // tournament mode ..
+
+            // register event to go back to game mode
+            REG_EVENT(pane_cx, 0, 0, SDL_EVENT_CHOOSE_GAME_MODE, "TOURNAMENT");
+
+            // display tournament mode status
+            char black_player_status_str[100] = "";   // XXX this could be a routine
+            char white_player_status_str[100] = "";
+            REG_EVENT(pane_cx, 2, 0, 0, "%5s %2d %s",
+                      player_black->name, board.black_cnt, black_player_status_str);
+            REG_EVENT(pane_cx, 3.5, 0, 0, "%5s %2d %s",
+                      player_white->name, board.white_cnt, white_player_status_str);
+
+
+            // xxx comment
+            int i;
+            for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
+                // xxx pickup results at end of a serises
+                REG_EVENT(pane_cx, 5.5+i, 0, 0, 
+                          "%5s %0.0f %d : %2.0f %%",
+                          tournament_players[i]->name,
+                          tournament.games_won[i],
+                          tournament.games_played[i],
+                          100. * tournament.games_won[i] / tournament.games_played[i]);
             }
-        }
 
-        for (r = 1; r <= 8; r++) {
-            for (c = 1; c <= 8; c++) {
-                RC_TO_MOVE(r,c,move);
-                RC_TO_LOC(r,c,loc);
-                sdl_register_event(pane, &loc, 
-                                   SDL_EVENT_SELECT_MOVE + move,
-                                   SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+
+        } else if (choose_player_mode == 0) { //xxx define for 0
+            // game mode ...
+
+            // if it is a human player's turn then
+            if ((whose_turn == REVERSI_BLACK && player_black == &human) ||
+                (whose_turn == REVERSI_WHITE && player_white == &human)) 
+            {
+                // display the human player's possilbe moves as small circles
+                for (i = 0; i < possible_moves.max; i++) {
+                    MOVE_TO_RC(possible_moves.move[i], r, c);
+                    RC_TO_LOC(r,c,loc);
+                    sdl_render_texture(
+                        pane, loc.x+52, loc.y+52, 
+                        (possible_moves.color == REVERSI_BLACK ? small_black_circle : small_white_circle));
+                }
+
+                // register mouse click events for every square
+                // xxx maybe these go down below
+                for (r = 1; r <= 8; r++) {
+                    for (c = 1; c <= 8; c++) {
+                        RC_TO_MOVE(r,c,move);
+                        RC_TO_LOC(r,c,loc);
+                        sdl_register_event(pane, &loc, 
+                                           SDL_EVENT_HUMAN_MOVE_SELECT + move,
+                                           SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+                    }
+                }
+
+                // if there are no possible moves for this player then
+                // register for the HUMAN_MOVE_PASS event
+                if (possible_moves.max == 0) {
+                    char *str = (possible_moves.color == REVERSI_WHITE
+                                ? "WHITE-MUST-PASS" : "BLACK-MUST-PASS");
+                    REG_EVENT(pane_cx, 7, 0, SDL_EVENT_HUMAN_MOVE_PASS, str);
+                }
             }
-        }
 
-        sdl_render_text_and_register_event(
-            pane, 1030, ROW2Y(0,40), 40, "RESTART", LIGHT_BLUE, BLACK, 
-            SDL_EVENT_GAME_RESTART, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+            // register game mode events
+            REG_EVENT(pane_cx, 0, 0, 
+                      (get_game_state() == GAME_STATE_RESET ? SDL_EVENT_CHOOSE_TOURNAMENT_MODE : 0),
+                      "GAME");
 
-        sdl_render_printf(
-            pane, 1030, ROW2Y(2,40), 40, WHITE, BLACK, 
-            "%s %s %2d %s",
-            "BLACK", player_black->name, board.black_cnt, (whose_turn == REVERSI_BLACK ? "<=" : ""));
-        sdl_render_printf(
-            pane, 1030, ROW2Y(3,40), 40, WHITE, BLACK, 
-            "%s %s %2d %s",
-            "WHITE", player_white->name, board.white_cnt, (whose_turn == REVERSI_WHITE ? "<=" : ""));
+            if (get_game_state() == GAME_STATE_ACTIVE || get_game_state() == GAME_STATE_COMPLETE) {
+                REG_EVENT(pane_cx, 2, 0, SDL_EVENT_GAME_START, "RESTART");
+                REG_EVENT(pane_cx, 2, 10, SDL_EVENT_GAME_RESET, "RESET");
+            }
 
-        if (player_black_board_eval != BOARD_EVAL_NONE) {
-            sdl_render_printf(
-                pane, 1030, ROW2Y(6,40), 40, WHITE, BLACK, 
-                "BLACK: % d", player_black_board_eval);
-        }
-        if (player_white_board_eval != BOARD_EVAL_NONE) {
-            sdl_render_printf(
-                pane, 1030, ROW2Y(7,40), 40, WHITE, BLACK, 
-                "WHITE: % d", player_white_board_eval);
-        }
+            if (get_game_state() == GAME_STATE_RESET) {
+                REG_EVENT(pane_cx, 2, 0, SDL_EVENT_GAME_START, "START");
+            }
 
-        if (get_game_state() == GAME_STATE_COMPLETE) {
-            sdl_render_printf(
-                pane, 1030, ROW2Y(9,40), 40, WHITE, BLACK, 
-                "GAME OVER");
-            if (board.black_cnt == board.white_cnt) {
-                sdl_render_printf(
-                    pane, 1030, ROW2Y(10,40), 40, WHITE, BLACK, 
-                    "TIE");
-            } else if (board.black_cnt > board.white_cnt) {
-                sdl_render_printf(
-                    pane, 1030, ROW2Y(10,40), 40, WHITE, BLACK, 
-                    "BLACK WINS BY %d", board.black_cnt - board.white_cnt);
+            // display game status
+            char black_player_status_str[100] = "";
+            char white_player_status_str[100] = "";
+            if (get_game_state() == GAME_STATE_RESET) {
+                REG_EVENT(pane_cx, 4, 0, SDL_EVENT_CHOOSE_BLACK_PLAYER, "%s", player_black->name);
+                REG_EVENT(pane_cx, 5.5, 0, SDL_EVENT_CHOOSE_WHITE_PLAYER, "%s", player_white->name);
             } else {
-                sdl_render_printf(
-                    pane, 1030, ROW2Y(10,40), 40, WHITE, BLACK, 
-                    "WHITE WINS BY %d", board.white_cnt - board.black_cnt);
+                REG_EVENT(pane_cx, 4, 0, 0, "%5s %2d %s",
+                          player_black->name, board.black_cnt, black_player_status_str);
+                REG_EVENT(pane_cx, 5.5, 0, 0, "%5s %2d %s",
+                          player_white->name, board.white_cnt, white_player_status_str);
             }
-        }
 
-        if (possible_moves.max == 0) {
-            char *str = (possible_moves.color == REVERSI_WHITE
-                         ? "WHITE-MUST-PASS" : "BLACK-MUST-PASS");
-            sdl_render_text_and_register_event(
-                pane, 1030, win_height-ROW2Y(2,40), 40, str, LIGHT_BLUE, BLACK, 
-                SDL_EVENT_SELECT_MOVE_PASS, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        } else {
+            // game mode / choose player ...
+
+            // register player selection events
+            // xxx later SDL_EVENT_CHOOSE_PLAYER_SELECT   legnth MAX_AVAIL_PLAYERS
         }
             
         return PANE_HANDLER_RET_NO_ACTION;
@@ -528,17 +617,48 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
         int rc = PANE_HANDLER_RET_NO_ACTION;
 
         switch (event->event_id) {
-        case SDL_EVENT_GAME_RESTART:
-            set_game_state(GAME_STATE_RESTART);
+        // global events
+        case SDL_EVENT_HELP:
+            help_mode = true;
             break;
-        case SDL_EVENT_SELECT_MOVE ... SDL_EVENT_SELECT_MOVE+100: {
-            move_select = event->event_id - SDL_EVENT_SELECT_MOVE;
-            break; }
-        case SDL_EVENT_SELECT_MOVE_PASS:
-            move_select = MOVE_PASS;
-            break;
-        case 'q':  // quit
+        case SDL_EVENT_QUIT_PGM:
             rc = PANE_HANDLER_RET_PANE_TERMINATE;
+            break;
+
+        // tournament mode events
+        case SDL_EVENT_CHOOSE_GAME_MODE:
+            tournament.enabled = false;
+            set_game_state(GAME_STATE_RESET);
+            break;
+
+        // game mode events
+        case SDL_EVENT_CHOOSE_TOURNAMENT_MODE:
+            memset(&tournament, 0, sizeof(tournament));
+            tournament.enabled = true;
+            set_game_state(GAME_STATE_START);
+            break;
+        case SDL_EVENT_GAME_START:
+            set_game_state(GAME_STATE_START);
+            break;
+        case SDL_EVENT_GAME_RESET:
+            set_game_state(GAME_STATE_RESET);
+            break;
+        case SDL_EVENT_HUMAN_MOVE_PASS:
+            human_move_select = MOVE_PASS;
+            break;
+        case SDL_EVENT_HUMAN_MOVE_SELECT ... SDL_EVENT_HUMAN_MOVE_SELECT+99:
+            human_move_select = event->event_id - SDL_EVENT_HUMAN_MOVE_SELECT;
+            break;
+
+        // game mode, choose player events
+        case SDL_EVENT_CHOOSE_BLACK_PLAYER:
+            // xxx later
+            break;
+        case SDL_EVENT_CHOOSE_WHITE_PLAYER:
+            // xxx later
+            break;
+        case SDL_EVENT_CHOOSE_PLAYER_SELECT ... SDL_EVENT_CHOOSE_PLAYER_SELECT+MAX_AVAIL_PLAYERS-1:
+            // xxx later
             break;
         default:
             break;
@@ -560,17 +680,88 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     return PANE_HANDLER_RET_NO_ACTION;
 }
 
+// xxx name
+static void REG_EVENT(pane_cx_t *pane_cx, double r, double c, int event, char *fmt, ...)
+{
+    int x, y;
+    char str[100];
+    va_list ap;
+    rect_t * pane = &pane_cx->pane;
+
+    // get x, y
+    x = (c >= 0 ? CTLX + COL2X(c,FONTSZ) : win_width  + COL2X(c,FONTSZ));
+    y = (r >= 0 ? CTLY + ROW2Y(r,FONTSZ) : win_height + ROW2Y(r,FONTSZ));
+
+    // make str
+    va_start(ap,fmt);
+    vsprintf(str, fmt, ap);
+    va_end(ap);
+
+    // if event is 0 then print else register event
+    if (event == 0) {
+        sdl_render_text(
+            pane, x, y, FONTSZ, str, WHITE, BLACK);
+    } else {
+        sdl_render_text_and_register_event(
+            pane, x, y, FONTSZ, str, LIGHT_BLUE, BLACK, 
+            event, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+    }
+}
 
 
 #if 0
-- get possible moves is public again
-  - needs a count of possilbe moves too, and maybe the list
-- display select PASS available if no possible moves
-- human calls get_possible moves to deterine if PASS is an allowed return 
-- code in human will automatically determine game over
-- redesign display, to also display game_state and color icons
+        case SDL_EVENT_GAME_RESTART:
+            set_game_state(GAME_STATE_RESET or START events needed
+            break;
+        case SDL_EVENT_SELECT_MOVE ... SDL_EVENT_SELECT_MOVE+100: {
+            move_select = event->event_id - SDL_EVENT_SELECT_MOVE;
+            break; }
+        case SDL_EVENT_SELECT_MOVE_PASS:
+            move_select = MOVE_PASS;
+            break;
 
-// XXX may want a mutex unless we can atomically flip the board and new_board
-pane_hndlr
-- button to start the game
+
+
+        sdl_render_text_and_register_event(
+            pane, CTLX, ROW2Y(0,FONTSZ), FONTSZ, "RESTART", LIGHT_BLUE, BLACK, 
+            SDL_EVENT_GAME_RESTART, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+
+        sdl_render_printf(
+            pane, CTLX, ROW2Y(2,FONTSZ), FONTSZ, WHITE, BLACK, 
+            "%s %s %2d %s",
+            "BLACK", player_black->name, board.black_cnt, (whose_turn == REVERSI_BLACK ? "<=" : ""));
+        sdl_render_printf(
+            pane, CTLX, ROW2Y(3,FONTSZ), FONTSZ, WHITE, BLACK, 
+            "%s %s %2d %s",
+            "WHITE", player_white->name, board.white_cnt, (whose_turn == REVERSI_WHITE ? "<=" : ""));
+
+        if (player_black_board_eval != BOARD_EVAL_NONE) {
+            sdl_render_printf(
+                pane, CTLX, ROW2Y(6,FONTSZ), FONTSZ, WHITE, BLACK, 
+                "BLACK: % d", player_black_board_eval);
+        }
+        if (player_white_board_eval != BOARD_EVAL_NONE) {
+            sdl_render_printf(
+                pane, CTLX, ROW2Y(7,FONTSZ), FONTSZ, WHITE, BLACK, 
+                "WHITE: % d", player_white_board_eval);
+        }
+
+        if (get_game_state() == GAME_STATE_COMPLETE) {
+            sdl_render_printf(
+                pane, CTLX, ROW2Y(9,FONTSZ), FONTSZ, WHITE, BLACK, 
+                "GAME OVER");
+            if (board.black_cnt == board.white_cnt) {
+                sdl_render_printf(
+                    pane, CTLX, ROW2Y(10,FONTSZ), FONTSZ, WHITE, BLACK, 
+                    "TIE");
+            } else if (board.black_cnt > board.white_cnt) {
+                sdl_render_printf(
+                    pane, CTLX, ROW2Y(10,FONTSZ), FONTSZ, WHITE, BLACK, 
+                    "BLACK WINS BY %d", board.black_cnt - board.white_cnt);
+            } else {
+                sdl_render_printf(
+                    pane, CTLX, ROW2Y(10,FONTSZ), FONTSZ, WHITE, BLACK, 
+                    "WHITE WINS BY %d", board.white_cnt - board.black_cnt);
+            }
+        }
 #endif

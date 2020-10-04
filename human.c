@@ -30,13 +30,13 @@ static int human_get_move(board_t *b, int my_color, int *b_eval)
 
     // loop until a valid move is chosen
     do {
-        // wait for either a move_select available or game_restart_requested
-        move_select = MOVE_NONE;
+        // wait for either an available selected move or game cancelled
+        human_move_select = MOVE_NONE;
         while (true) {
-            if (game_restart_requested()) {
+            if (game_cancelled()) {
                 return MOVE_GAME_OVER;
             }
-            if ((move = move_select) != MOVE_NONE) {
+            if ((move = human_move_select) != MOVE_NONE) {
                 break;
             }
             usleep(10*MS);

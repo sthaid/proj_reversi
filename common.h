@@ -80,7 +80,7 @@ typedef struct {
 } player_t;
 
 typedef struct {
-    int move[64];  // xxx try unsigned char
+    int move[64];
     int max;
     int color;
 } possible_moves_t;
@@ -90,7 +90,7 @@ typedef struct {
 //
 
 bool debug_enabled;
-int move_select;  // XXX name
+int human_move_select;
 
 extern player_t human;
 extern player_t cpu_1, cpu_2, cpu_3, cpu_4, cpu_5, cpu_6;
@@ -100,8 +100,8 @@ extern player_t cpu_random;
 // prototypes
 //
 
-bool game_restart_requested(void);
 bool apply_move(board_t *b, int my_color, int move);
 void get_possible_moves(board_t *b, int my_color, possible_moves_t *pm);
+bool game_cancelled(void);
 
 #endif
