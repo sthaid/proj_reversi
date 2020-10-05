@@ -59,7 +59,7 @@ static player_t           *avail_players[] = { &human,
                                                &cpu_random };
 
 static tournament_t        tournament;
-static player_t           *tournament_players[] = { &cpu_1, &cpu_2, &cpu_3, &cpu_4, &cpu_5, &cpu_6 };
+static player_t           *tournament_players[] = { &cpu_1, &cpu_2, &cpu_3, &cpu_4, &cpu_5, /*&cpu_6*/ };
 
 static int                 player_black_board_eval = BOARD_EVAL_NONE;  // xxx tbd
 static int                 player_white_board_eval = BOARD_EVAL_NONE;  // xxx tbd
@@ -121,6 +121,9 @@ int main(int argc, char **argv)
 static void initialize(void)
 {
     pthread_t tid;
+
+    // XXX config file
+    // XXX - setting for projection
 
     // xxx use config file
     game_mode_player_black = &human;
@@ -263,7 +266,7 @@ static void tournament_tally_game_result(void)
          wrong_winner ? "WRONG_WINNER" : "");
 #endif
 
-    sleep(1);
+    //sleep(1);
 
     tournament.games_played[tournament.pb_idx]++;
     tournament.games_played[tournament.pw_idx]++;

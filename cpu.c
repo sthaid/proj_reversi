@@ -138,6 +138,52 @@ static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_
     int piece_cnt_diff, corner_cnt_diff;
     int other_color = OTHER_COLOR(my_color);
 
+    // XXX update this comment
+    // XXX play this against the original 
+
+    // the static evaluation return value is:
+    // - when game is over:
+    //   - if winner:  10000 + piece_cnt_diff
+    //   - if loser:  -10000 + piece_cnt_diff  (note piece_cnt_diff is negative in this case)
+    // - when game is not over
+    //   - 1000 * corner_cnt_diff + number_of_possible_moves
+    //     for example: 
+    //       . my_color is REVERSI_BLACK, 
+    //       . black has 2 corner, and white has 1 corner
+    //       . black has 5 possible moves
+    //     result = 1000 * (2 - 1) + 5 = 1005
+
+    // this evaluation algorithm gives:
+    // - first precedence to winning
+    // - second precedence to obtaining corners
+    // - third precedence to number of possible moved
+
+    piece_cnt_diff = (my_color == REVERSI_BLACK 
+                      ? b->black_cnt - b->white_cnt 
+                      : b->white_cnt - b->black_cnt);
+    if (game_over) {
+        if (piece_cnt_diff > 0) {
+            return 10000 + piece_cnt_diff;
+        } else {
+            return -10000 + piece_cnt_diff;
+        }
+    }
+
+    corner_cnt_diff = 0;
+    corner_cnt_diff += (b->pos[1][1] == my_color ? 1 : b->pos[1][1] == other_color ? -1 : 0);
+    corner_cnt_diff += (b->pos[1][8] == my_color ? 1 : b->pos[1][8] == other_color ? -1 : 0);
+    corner_cnt_diff += (b->pos[8][1] == my_color ? 1 : b->pos[8][1] == other_color ? -1 : 0);
+    corner_cnt_diff += (b->pos[8][8] == my_color ? 1 : b->pos[8][8] == other_color ? -1 : 0);
+
+    //return 1000 * corner_cnt_diff + pm->max;
+    return 1000 * corner_cnt_diff - piece_cnt_diff;
+}
+#if 0
+static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_t *pm)
+{
+    int piece_cnt_diff, corner_cnt_diff;
+    int other_color = OTHER_COLOR(my_color);
+
     // the static evaluation return value is:
     // - when game is over:
     //   - if winner:  10000 + piece_cnt_diff
@@ -174,3 +220,4 @@ static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_
 
     return 1000 * corner_cnt_diff + pm->max;
 }
+#endif
