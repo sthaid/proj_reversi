@@ -308,7 +308,7 @@ static int c_incr_tbl[8] = {1,  1,  0, -1, -1, -1, 0, 1};
 
 bool apply_move(board_t *b, int my_color, int move)
 {
-    int  r, c, i, other_color;
+    int  r, c, i, j, other_color;
     int *my_color_cnt, *other_color_cnt;
     bool succ;
 
@@ -342,7 +342,7 @@ bool apply_move(board_t *b, int my_color, int move)
 
         if (cnt > 0 && b->pos[r_next][c_next] == my_color) {
             succ = true;
-            for (i = 0; i < cnt; i++) {
+            for (j = 0; j < cnt; j++) {
                 r_next -= r_incr;
                 c_next -= c_incr;
                 b->pos[r_next][c_next] = my_color;
