@@ -306,17 +306,21 @@ static void tournament_tally_game_result(void)
 static int r_incr_tbl[8] = {0, -1, -1, -1,  0,  1, 1, 1};
 static int c_incr_tbl[8] = {1,  1,  0, -1, -1, -1, 0, 1};
 
-bool apply_move(board_t *b, int my_color, int move)
+void  apply_move(board_t *b, int my_color, int move)
 {
     int  r, c, i, j, other_color;
     int *my_color_cnt, *other_color_cnt;
     bool succ;
 
+    if (move == MOVE_PASS) {
+        return;
+    }
+
     succ = false;
     other_color = OTHER_COLOR(my_color);
     MOVE_TO_RC(move, r, c);
     if (b->pos[r][c] != REVERSI_EMPTY) {
-        return false;
+        FATAL("pos[%d][%d] = %d\n", r, c, b->pos[r][c]);
     }
 
     if (my_color == REVERSI_BLACK) {
@@ -326,6 +330,9 @@ bool apply_move(board_t *b, int my_color, int move)
         my_color_cnt    = &b->white_cnt;
         other_color_cnt = &b->black_cnt;
     }
+
+    b->pos[r][c] = my_color;
+    *my_color_cnt += 1;
 
     for (i = 0; i < 8; i++) {
         int r_incr = r_incr_tbl[i];
@@ -352,12 +359,9 @@ bool apply_move(board_t *b, int my_color, int move)
         }
     }
 
-    if (succ) {
-        b->pos[r][c] = my_color;
-        *my_color_cnt += 1;
+    if (!succ) {
+        FATAL("invalid call to apply_move\n");
     }
-
-    return succ;
 }
 
 void get_possible_moves(board_t *b, int my_color, possible_moves_t *pm)

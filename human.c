@@ -12,6 +12,7 @@ static int human_get_move(board_t *b, int my_color, int *b_eval)
     bool             valid_move;
     possible_moves_t pm;
     int              move;
+    int              i;
 
     // there is no board evaluation performed
     *b_eval = BOARD_EVAL_NONE;
@@ -43,11 +44,16 @@ static int human_get_move(board_t *b, int my_color, int *b_eval)
         }
 
         // determine if move is valid
+        valid_move = false;
         if (pm.max == 0) {
             valid_move = (move == MOVE_PASS);
         } else  {
-            board_t tmp_b = *b;
-            valid_move = apply_move(&tmp_b, my_color, move);
+            for (i = 0; i < pm.max; i++) {
+                if (move == pm.move[i]) {
+                    valid_move = true;
+                    break;
+                }
+            }
         }
     } while (valid_move == false);
 

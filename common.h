@@ -100,7 +100,7 @@ extern player_t cpu_random;
 // prototypes
 //
 
-bool apply_move(board_t *b, int my_color, int move);
+void apply_move(board_t *b, int my_color, int move);
 void get_possible_moves(board_t *b, int my_color, possible_moves_t *pm);
 bool game_cancelled(void);
 
