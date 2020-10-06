@@ -47,6 +47,7 @@ static int                 win_height = DEFAULT_WIN_HEIGHT;
 static int                 game_state = GAME_STATE_RESET;
 
 static board_t             board;
+static int                 board_highlight[10][10];
 static int                 whose_turn;
 static possible_moves_t    possible_moves;
 
@@ -156,7 +157,10 @@ restart:
     }
 
     // wait for GAME_STATE_START
+    // xxx this doesn't happen in tournament mode
     while (get_game_state() != GAME_STATE_START) {
+        player_black = game_mode_player_black;
+        player_white = game_mode_player_white;
         usleep(10*MS);
     }
 
@@ -181,7 +185,7 @@ restart:
         possible_moves.max = -1;
         if (get_game_state() != GAME_STATE_ACTIVE) goto restart;
         if (move == MOVE_GAME_OVER) break;
-        apply_move(&board, REVERSI_BLACK, move);
+        apply_move(&board, REVERSI_BLACK, move, true); //AAA only when human vs computer OR vs human
 
         whose_turn = REVERSI_WHITE;
         get_possible_moves(&board, REVERSI_WHITE, &possible_moves);
@@ -189,7 +193,7 @@ restart:
         possible_moves.max = -1;
         if (get_game_state() != GAME_STATE_ACTIVE) goto restart;
         if (move == MOVE_GAME_OVER) break;
-        apply_move(&board, REVERSI_WHITE, move);
+        apply_move(&board, REVERSI_WHITE, move, true);
     }
 
     // game is over
@@ -225,6 +229,8 @@ static void init_board(void)
     board.pos[5][5] = REVERSI_WHITE;
     board.black_cnt = 2;
     board.white_cnt = 2;
+
+    memset(board_highlight, 0, sizeof(board_highlight));
 }
 
 static void set_game_state(int new_game_state)
@@ -306,7 +312,7 @@ static void tournament_tally_game_result(void)
 static int r_incr_tbl[8] = {0, -1, -1, -1,  0,  1, 1, 1};
 static int c_incr_tbl[8] = {1,  1,  0, -1, -1, -1, 0, 1};
 
-void  apply_move(board_t *b, int my_color, int move)
+void  apply_move(board_t *b, int my_color, int move, bool highlight)
 {
     int  r, c, i, j, other_color;
     int *my_color_cnt, *other_color_cnt;
@@ -334,6 +340,11 @@ void  apply_move(board_t *b, int my_color, int move)
     b->pos[r][c] = my_color;
     *my_color_cnt += 1;
 
+    if (highlight) {
+        board_highlight[r][c] = 2;
+        usleep(200000);
+    }
+
     for (i = 0; i < 8; i++) {
         int r_incr = r_incr_tbl[i];
         int c_incr = c_incr_tbl[i];
@@ -349,14 +360,25 @@ void  apply_move(board_t *b, int my_color, int move)
 
         if (cnt > 0 && b->pos[r_next][c_next] == my_color) {
             succ = true;
+            r_next = r;
+            c_next = c;
             for (j = 0; j < cnt; j++) {
-                r_next -= r_incr;
-                c_next -= c_incr;
+                r_next += r_incr;
+                c_next += c_incr;
                 b->pos[r_next][c_next] = my_color;
+                if (highlight) {
+                    board_highlight[r_next][c_next] = 1;
+                    usleep(200000);
+                }
             }
             *my_color_cnt += cnt;
             *other_color_cnt -= cnt;
         }
+    }
+
+    if (highlight) {
+        sleep(1);
+        memset(board_highlight, 0, sizeof(board_highlight));
     }
 
     if (!succ) {
@@ -474,14 +496,17 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
-        int r, c, i, move;
+        int r, c, i, move, color;
         rect_t loc;
 
         // draw the 64 green playing squares
         for (r = 1; r <= 8; r++) {
             for (c = 1; c <= 8; c++) {
                 RC_TO_LOC(r,c,loc);
-                sdl_render_fill_rect(pane, &loc, GREEN);
+                color = (board_highlight[r][c] == 0 ? GREEN : 
+                         board_highlight[r][c] == 1 ? LIGHT_BLUE : 
+                                                      BLUE);
+                sdl_render_fill_rect(pane, &loc, color);
             }
         }
 

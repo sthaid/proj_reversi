@@ -93,7 +93,7 @@ static int eval(board_t *b, int my_color, int recursion_depth, int max_recursion
         // make a copy of the board, and apply the move to it,
         // this is now the board that the oppenent needs to choose a move from
         board_t new_board = *b;
-        apply_move(&new_board, my_color, pm.move[i]);
+        apply_move(&new_board, my_color, pm.move[i], false);
 
         // obtaine the opponent's board eval metric via recursive call to eval
         val[i].val = eval(&new_board, other_color, recursion_depth+1, max_recursion_depth, NULL);
