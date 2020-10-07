@@ -20,8 +20,6 @@
 
 #define FONTSZ  70   // xxx use 50 for linux later
 
-// xxx solve name for WHITE and BLACK problem
-
 //
 // typedefs
 //
@@ -258,21 +256,6 @@ static void tournament_get_players(player_t **pb, player_t **pw)
 
 static void tournament_tally_game_result(void)
 {
-#if 0
-    // xxx display game over and final score   xxx and who wins
-    // xxx print score
-    bool black_should_win = (tournament.pb_idx > tournament.pw_idx);
-    bool white_should_win = (tournament.pw_idx > tournament.pb_idx);
-    bool wrong_winner = (black_should_win && board.black_cnt <= board.white_cnt) ||
-                        (white_should_win && board.white_cnt <= board.black_cnt);
-    INFO("GAME COMPLETE - BLACK=%s WHITE=%s - %d,%d - %s   %s\n",
-         player_black->name, player_white->name,
-         board.black_cnt, board.white_cnt, WINNER_STR(&board),
-         wrong_winner ? "WRONG_WINNER" : "");
-#endif
-
-    //sleep(1);
-
     tournament.games_played[tournament.pb_idx]++;
     tournament.games_played[tournament.pw_idx]++;
     if (board.black_cnt == board.white_cnt) {
@@ -283,27 +266,6 @@ static void tournament_tally_game_result(void)
     } else {
         tournament.games_won[tournament.pw_idx] += 1;
     }
-
-#if 0  // xxx publish result at end of each round
-    //INFO("tsi %d\n", tournament.select_idx);
-    if ((tournament.select_idx % (MAX_TOURNAMENT_PLAYERS*MAX_TOURNAMENT_PLAYERS)) == 
-         (MAX_TOURNAMENT_PLAYERS*MAX_TOURNAMENT_PLAYERS-1))
-    {
-        int i;
-        char s[200], *p=s;
-        //char *p = s;
-        for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
-            p += sprintf(p, "%0.1f/%d  ", 
-                tournament_players[i].games_won, tournament_players[i].games_played);
-        }
-        p += sprintf(p, " - ");
-        for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
-            p += sprintf(p, "%2.0f ",
-                    100. * tournament_players[i].games_won / tournament_players[i].games_played);
-        }
-        INFO("%s\n", s);
-    }
-#endif
 }
 
 // -----------------  GAME UTILS  -------------------------------------------------
@@ -436,11 +398,9 @@ bool game_cancelled(void)
 // defines
 //
 
-// xxx cleanup
 #define CTLX  1015
 #define CTLY  0
 
-// xxx comment
 #define RC_TO_LOC(r,c,loc) \
     do { \
         (loc).x = 2 + ((c) - 1) * 125; \
@@ -449,9 +409,16 @@ bool game_cancelled(void)
         (loc).h = 123; \
     } while (0)
 
-// global events
+//
+// define events
+//
+
+// events common to multiple modes
 #define SDL_EVENT_HELP                    (SDL_EVENT_USER_DEFINED + 0)
 #define SDL_EVENT_QUIT_PGM                (SDL_EVENT_USER_DEFINED + 1)
+
+// help mode events
+#define SDL_EVENT_EXIT_HELP               (SDL_EVENT_USER_DEFINED + 5)
 
 // tournament mode events
 #define SDL_EVENT_CHOOSE_GAME_MODE        (SDL_EVENT_USER_DEFINED + 10)
@@ -484,13 +451,20 @@ static int  choose_player_mode;
 // prototypes
 //
 
-static void display_help_mode(pane_cx_t *pane_cx);
-static void display_tournament_mode(pane_cx_t *pane_cx);
-static void display_game_choose_player_mode(pane_cx_t *pane_cx);
-static void display_game_mode(pane_cx_t *pane_cx);
-static void display_board(pane_cx_t *pane_cx);
-static void REG_EVENT(pane_cx_t *pane_cx, double r, double c, int event, char *fmt, ...)  // xxx name  
+static void render_help_mode(pane_cx_t *pane_cx);
+static int event_help_mode(pane_cx_t *pane_cx, sdl_event_t *event);
+static void render_tournament_mode(pane_cx_t *pane_cx);
+static int event_tournament_mode(pane_cx_t *pane_cx, sdl_event_t *event);
+static void render_game_choose_player_mode(pane_cx_t *pane_cx);
+static int event_game_choose_player_mode(pane_cx_t *pane_cx, sdl_event_t *event);
+static void render_game_mode(pane_cx_t *pane_cx);
+static int event_game_mode(pane_cx_t *pane_cx, sdl_event_t *event);
+
+static void render_board(pane_cx_t *pane_cx);
+static void register_event(pane_cx_t *pane_cx, double r, double c, int event, char *fmt, ...)
                 __attribute__ ((format (printf, 5, 6)));
+static void print(pane_cx_t *pane_cx, double r, double c, char *fmt, ...)
+                __attribute__ ((format (printf, 4, 5)));
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -520,13 +494,13 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
 
     if (request == PANE_HANDLER_REQ_RENDER) {
         if (help_mode) {
-            display_help_mode(pane_cx);
+            render_help_mode(pane_cx);
         } else if (tournament.enabled) {
-            display_tournament_mode(pane_cx);
+            render_tournament_mode(pane_cx);
         } else if (choose_player_mode != 0) { //xxx define for 0
-            display_game_choose_player_mode(pane_cx);
+            render_game_choose_player_mode(pane_cx);
         } else {
-            display_game_mode(pane_cx);
+            render_game_mode(pane_cx);
         }
             
         return PANE_HANDLER_RET_NO_ACTION;
@@ -536,56 +510,17 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     // -------- EVENT --------
     // -----------------------
 
-    // XXX should these go with the display code
     if (request == PANE_HANDLER_REQ_EVENT) {
-        int rc = PANE_HANDLER_RET_NO_ACTION;
+        int rc;
 
-        switch (event->event_id) {
-        // global events
-        case SDL_EVENT_HELP:
-            help_mode = true;
-            break;
-        case SDL_EVENT_QUIT_PGM:
-            rc = PANE_HANDLER_RET_PANE_TERMINATE;
-            break;
-
-        // tournament mode events
-        case SDL_EVENT_CHOOSE_GAME_MODE:
-            tournament.enabled = false;
-            set_game_state(GAME_STATE_RESET);
-            break;
-
-        // game mode events
-        case SDL_EVENT_CHOOSE_TOURNAMENT_MODE:
-            memset(&tournament, 0, sizeof(tournament));
-            tournament.enabled = true;
-            set_game_state(GAME_STATE_START);
-            break;
-        case SDL_EVENT_GAME_START:
-            set_game_state(GAME_STATE_START);
-            break;
-        case SDL_EVENT_GAME_RESET:
-            set_game_state(GAME_STATE_RESET);
-            break;
-        case SDL_EVENT_HUMAN_MOVE_PASS:
-            human_move_select = MOVE_PASS;
-            break;
-        case SDL_EVENT_HUMAN_MOVE_SELECT ... SDL_EVENT_HUMAN_MOVE_SELECT+99:
-            human_move_select = event->event_id - SDL_EVENT_HUMAN_MOVE_SELECT;
-            break;
-
-        // game mode, choose player events
-        case SDL_EVENT_CHOOSE_BLACK_PLAYER:
-            // xxx later
-            break;
-        case SDL_EVENT_CHOOSE_WHITE_PLAYER:
-            // xxx later
-            break;
-        case SDL_EVENT_CHOOSE_PLAYER_SELECT ... SDL_EVENT_CHOOSE_PLAYER_SELECT+MAX_AVAIL_PLAYERS-1:
-            // xxx later
-            break;
-        default:
-            break;
+        if (help_mode) {
+            rc = event_help_mode(pane_cx, event);
+        } else if (tournament.enabled) {
+            rc = event_tournament_mode(pane_cx, event);
+        } else if (choose_player_mode != 0) { //xxx define for 0
+            rc = event_game_choose_player_mode(pane_cx, event);
+        } else {
+            rc = event_game_mode(pane_cx, event);
         }
 
         return rc;
@@ -604,17 +539,19 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     return PANE_HANDLER_RET_NO_ACTION;
 }
 
-static void display_game_mode(pane_cx_t *pane_cx)
+// - - - - - - - - -  GAME MODE  - - - - - - - - - - - - - - - - - - 
+
+static void render_game_mode(pane_cx_t *pane_cx)
 {
     rect_t *pane = &pane_cx->pane;
 
     int r, c, i, move;
     rect_t loc;
-    display_board(pane_cx);
+    render_board(pane_cx);
 
     // game mode ...
-    REG_EVENT(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
-    REG_EVENT(pane_cx, -1, -4, SDL_EVENT_QUIT_PGM, "QUIT");
+    register_event(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
+    register_event(pane_cx, -1, -4, SDL_EVENT_QUIT_PGM, "QUIT");
 
     // if it is a human player's turn then
     if ((whose_turn == REVERSI_BLACK && player_black == &human) ||
@@ -644,93 +581,204 @@ static void display_game_mode(pane_cx_t *pane_cx)
         // if there are no possible moves for this player then
         // register for the HUMAN_MOVE_PASS event
         if (possible_moves.max == 0) {
-            char *str = (possible_moves.color == REVERSI_WHITE
-                        ? "WHITE-MUST-PASS" : "BLACK-MUST-PASS");
-            REG_EVENT(pane_cx, 7, 0, SDL_EVENT_HUMAN_MOVE_PASS, str);
+            register_event(pane_cx, 7.5, 0, SDL_EVENT_HUMAN_MOVE_PASS, "PASS");
         }
     }
 
     // register game mode events
-    REG_EVENT(pane_cx, 0, 0, 
-              (get_game_state() == GAME_STATE_RESET ? SDL_EVENT_CHOOSE_TOURNAMENT_MODE : 0),
-              "GAME");
+    if (get_game_state() == GAME_STATE_RESET) {
+        register_event(pane_cx, 0, 0, SDL_EVENT_CHOOSE_TOURNAMENT_MODE, "GAME");
+    } else {
+        print(pane_cx, 0, 0, "GAME");
+    }
 
     if (get_game_state() == GAME_STATE_ACTIVE || get_game_state() == GAME_STATE_COMPLETE) {
-        REG_EVENT(pane_cx, 2, 0, SDL_EVENT_GAME_START, "RESTART");
-        REG_EVENT(pane_cx, 2, 10, SDL_EVENT_GAME_RESET, "RESET");
+        register_event(pane_cx, 2, 0, SDL_EVENT_GAME_START, "RESTART");
+        register_event(pane_cx, 2, 10, SDL_EVENT_GAME_RESET, "RESET");
     }
 
     if (get_game_state() == GAME_STATE_RESET) {
-        REG_EVENT(pane_cx, 2, 0, SDL_EVENT_GAME_START, "START");
+        register_event(pane_cx, 2, 0, SDL_EVENT_GAME_START, "START");
     }
 
     // display game status
-    char black_player_status_str[100] = "";
-    char white_player_status_str[100] = "";
     if (get_game_state() == GAME_STATE_RESET) {
-        REG_EVENT(pane_cx, 4, 0, SDL_EVENT_CHOOSE_BLACK_PLAYER, "%s", player_black->name);
-        REG_EVENT(pane_cx, 5.5, 0, SDL_EVENT_CHOOSE_WHITE_PLAYER, "%s", player_white->name);
+        register_event(pane_cx, 4, 0, SDL_EVENT_CHOOSE_BLACK_PLAYER, "%s", player_black->name);
+        register_event(pane_cx, 5.5, 0, SDL_EVENT_CHOOSE_WHITE_PLAYER, "%s", player_white->name);
     } else {
-        REG_EVENT(pane_cx, 4, 0, 0, "%5s %2d %s",
-                  player_black->name, board.black_cnt, black_player_status_str);
-        REG_EVENT(pane_cx, 5.5, 0, 0, "%5s %2d %s",
-                  player_white->name, board.white_cnt, white_player_status_str);
+        print(pane_cx, 4, 0, "%5s %2d", player_black->name, board.black_cnt);
+        print(pane_cx, 5.5, 0, "%5s %2d", player_white->name, board.white_cnt);
     }
 }
 
-static void display_game_choose_player_mode(pane_cx_t *pane_cx)
+static int event_game_mode(pane_cx_t *pane_cx, sdl_event_t *event)
 {
-    display_board(pane_cx);
+    int rc = PANE_HANDLER_RET_DISPLAY_REDRAW;
 
-    REG_EVENT(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
-    REG_EVENT(pane_cx, -1, -4, SDL_EVENT_QUIT_PGM, "QUIT");
+    switch (event->event_id) {
+
+    // game mode events
+    case SDL_EVENT_CHOOSE_TOURNAMENT_MODE:
+        memset(&tournament, 0, sizeof(tournament));
+        tournament.enabled = true;
+        set_game_state(GAME_STATE_START);
+        break;
+    case SDL_EVENT_GAME_START:
+        set_game_state(GAME_STATE_START);
+        break;
+    case SDL_EVENT_GAME_RESET:
+        set_game_state(GAME_STATE_RESET);
+        break;
+    case SDL_EVENT_HUMAN_MOVE_PASS:
+        human_move_select = MOVE_PASS;
+        break;
+    case SDL_EVENT_HUMAN_MOVE_SELECT ... SDL_EVENT_HUMAN_MOVE_SELECT+99:
+        human_move_select = event->event_id - SDL_EVENT_HUMAN_MOVE_SELECT;
+        break;
+
+    // common events
+    case SDL_EVENT_HELP:
+        help_mode = true;
+        break;
+    case SDL_EVENT_QUIT_PGM:
+        rc = PANE_HANDLER_RET_PANE_TERMINATE;
+        break;
+    }
+
+    return rc;
+}
+
+// - - - - - - - - -  GAME CHOOSE PLAYER MODE  - - - - - - - - - - - 
+
+static void render_game_choose_player_mode(pane_cx_t *pane_cx)
+{
+    render_board(pane_cx);
+
+    register_event(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
+    register_event(pane_cx, -1, -4, SDL_EVENT_QUIT_PGM, "QUIT");
     // game mode / choose player ...
 
     // register player selection events
     // xxx later SDL_EVENT_CHOOSE_PLAYER_SELECT   legnth MAX_AVAIL_PLAYERS
 }
 
-static void display_tournament_mode(pane_cx_t *pane_cx)
+static int event_game_choose_player_mode(pane_cx_t *pane_cx, sdl_event_t *event)
 {
-    display_board(pane_cx);
+    int rc = PANE_HANDLER_RET_DISPLAY_REDRAW;
 
-    REG_EVENT(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
-    REG_EVENT(pane_cx, -1, -4, SDL_EVENT_QUIT_PGM, "QUIT");
-    // tournament mode ..
+    switch (event->event_id) {
 
-    // register event to go back to game mode
-    REG_EVENT(pane_cx, 0, 0, SDL_EVENT_CHOOSE_GAME_MODE, "TOURNAMENT");
+    // game mode, choose player events
+    case SDL_EVENT_CHOOSE_BLACK_PLAYER:
+        // xxx later
+        break;
+    case SDL_EVENT_CHOOSE_WHITE_PLAYER:
+        // xxx later
+        break;
+    case SDL_EVENT_CHOOSE_PLAYER_SELECT ... SDL_EVENT_CHOOSE_PLAYER_SELECT+MAX_AVAIL_PLAYERS-1:
+        // xxx later
+        break;
 
-    // display tournament mode status
-    char black_player_status_str[100] = "";   // XXX this could be a routine
-    char white_player_status_str[100] = "";
-    REG_EVENT(pane_cx, 2, 0, 0, "%5s %2d %s",
-              player_black->name, board.black_cnt, black_player_status_str);
-    REG_EVENT(pane_cx, 3.5, 0, 0, "%5s %2d %s",
-              player_white->name, board.white_cnt, white_player_status_str);
-
-    // xxx comment
-    int i;
-    for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
-        // xxx pickup results at end of a serises
-        REG_EVENT(pane_cx, 5.5+i, 0, 0, 
-                  "%5s %0.0f %d : %2.0f %%",
-                  tournament_players[i]->name,
-                  tournament.games_won[i],
-                  tournament.games_played[i],
-                  100. * tournament.games_won[i] / tournament.games_played[i]);
+    // common events
+    case SDL_EVENT_HELP:
+        help_mode = true;
+        break;
+    case SDL_EVENT_QUIT_PGM:
+        rc = PANE_HANDLER_RET_PANE_TERMINATE;
+        break;
     }
+
+    return rc;
 }
 
-static void display_help_mode(pane_cx_t *pane_cx)
+// - - - - - - - - -  TOURNAMENT MODE - - - - - - - - - - - - - - - 
+
+static void render_tournament_mode(pane_cx_t *pane_cx)
+{
+    int i, total_games_played;
+
+    // xxx comment
+    render_board(pane_cx);
+
+    // xxx comment
+    register_event(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
+    register_event(pane_cx, -1, -4, SDL_EVENT_QUIT_PGM, "QUIT");
+
+    // register event to go back to game mode
+    register_event(pane_cx, 0, 0, SDL_EVENT_CHOOSE_GAME_MODE, "TOURNAMENT");
+
+    // display tournament mode status
+    print(pane_cx, 1.5, 0, "%5s", player_black->name);
+    print(pane_cx, 2.5, 0, "%5s", player_white->name);
+
+    // xxx comment
+    total_games_played = 0;
+    for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
+        print(pane_cx, 4+i, 0, 
+                  "%5s : %3.0f %%",
+                  tournament_players[i]->name,
+                  100. * tournament.games_won[i] / tournament.games_played[i]);
+        total_games_played += tournament.games_played[i];
+    }
+
+    // print total games
+    print(pane_cx, 4.5+i, 0, "GAMES = %d", total_games_played);
+}
+
+static int event_tournament_mode(pane_cx_t *pane_cx, sdl_event_t *event)
+{
+    int rc = PANE_HANDLER_RET_DISPLAY_REDRAW;
+
+    switch (event->event_id) {
+
+    // tournament mode events
+    case SDL_EVENT_CHOOSE_GAME_MODE:
+        tournament.enabled = false;
+        set_game_state(GAME_STATE_RESET);
+        break;
+
+    // common events
+    case SDL_EVENT_HELP:
+        help_mode = true;
+        break;
+    case SDL_EVENT_QUIT_PGM:
+        rc = PANE_HANDLER_RET_PANE_TERMINATE;
+        break;
+    }
+
+    return rc;
+}
+
+// - - - - - - - - -  HELP MODE - - - - - - - - - - - - - - - - - - 
+
+static void render_help_mode(pane_cx_t *pane_cx)
 {
     // help mode ...
     // xxx display help screen
     // - mouse wheel scroll
     // - BACK event at lower right
+
+    // register event to exit help mode
+    register_event(pane_cx, -1, -4, SDL_EVENT_EXIT_HELP, "BACK");
 }
 
-static void display_board(pane_cx_t *pane_cx)
+static int event_help_mode(pane_cx_t *pane_cx, sdl_event_t *event)
+{
+    int rc = PANE_HANDLER_RET_DISPLAY_REDRAW;
+
+    switch (event->event_id) {
+
+    case SDL_EVENT_EXIT_HELP:
+        help_mode = false;
+        break;
+    }
+
+    return rc;
+}
+
+// - - - - - - - - -  DISPLAY COMMON ROUTINES - - - - - - - - - - - 
+
+static void render_board(pane_cx_t *pane_cx)
 {
     rect_t *pane = &pane_cx->pane;
     int r, c, color;
@@ -751,18 +799,43 @@ static void display_board(pane_cx_t *pane_cx)
     for (r = 1; r <= 8; r++) {
         for (c = 1; c <= 8; c++) {
             RC_TO_LOC(r,c,loc);
-            // xxx single line
             if (board.pos[r][c] == REVERSI_BLACK) {
                 sdl_render_texture(pane, loc.x+12, loc.y+12, black_circle);
             } else if (board.pos[r][c] == REVERSI_WHITE) {
                 sdl_render_texture(pane, loc.x+12, loc.y+12, white_circle);
-            } 
+            }
         }
     }
 }
 
-// xxx name
-static void REG_EVENT(pane_cx_t *pane_cx, double r, double c, int event, char *fmt, ...)
+static void register_event(pane_cx_t *pane_cx, double r, double c, int event, char *fmt, ...)
+{
+    int x, y;
+    char str[100];
+    va_list ap;
+    rect_t * pane = &pane_cx->pane;
+
+    // event must not be 0
+    if (event == 0) {
+        FATAL("event is 0\n");
+    }
+
+    // get x, y
+    x = (c >= 0 ? CTLX + COL2X(c,FONTSZ) : win_width  + COL2X(c,FONTSZ));
+    y = (r >= 0 ? CTLY + ROW2Y(r,FONTSZ) : win_height + ROW2Y(r,FONTSZ));
+
+    // make str
+    va_start(ap,fmt);
+    vsprintf(str, fmt, ap);
+    va_end(ap);
+
+    // register event
+    sdl_render_text_and_register_event(
+        pane, x, y, FONTSZ, str, LIGHT_BLUE, BLACK, 
+        event, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+}
+
+static void print(pane_cx_t *pane_cx, double r, double c, char *fmt, ...)
 {
     int x, y;
     char str[100];
@@ -778,13 +851,6 @@ static void REG_EVENT(pane_cx_t *pane_cx, double r, double c, int event, char *f
     vsprintf(str, fmt, ap);
     va_end(ap);
 
-    // if event is 0 then print else register event
-    if (event == 0) {
-        sdl_render_text(
-            pane, x, y, FONTSZ, str, WHITE, BLACK);
-    } else {
-        sdl_render_text_and_register_event(
-            pane, x, y, FONTSZ, str, LIGHT_BLUE, BLACK, 
-            event, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
-    }
+    // register event
+    sdl_render_text( pane, x, y, FONTSZ, str, WHITE, BLACK);
 }
