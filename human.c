@@ -34,8 +34,8 @@ static int human_get_move(board_t *b, int my_color, int *b_eval)
         // wait for either an available selected move or game cancelled
         human_move_select = MOVE_NONE;
         while (true) {
-            if (game_cancelled()) {
-                return MOVE_GAME_OVER;
+            if (move_cancelled()) {
+                return MOVE_NONE;
             }
             if ((move = human_move_select) != MOVE_NONE) {
                 break;

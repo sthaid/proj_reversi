@@ -22,20 +22,15 @@
 // defines
 //
 
-#define REVERSI_EMPTY  0 //xxx names
-#define REVERSI_BLACK  1
-#define REVERSI_WHITE  2
+#define NONE   0
+#define BLACK  10
+#define WHITE  9
 
 #define MOVE_PASS       -1
 #define MOVE_GAME_OVER  -2
 #define MOVE_NONE       -9
 
 #define BOARD_EVAL_NONE 999999
-
-#define REVERSI_COLOR_STR(c) \
-    ((c) == REVERSI_BLACK ? "BLACK" : \
-     (c) == REVERSI_WHITE ? "WHITE" : \
-                            "????")
 
 #define MOVE_TO_RC(m,r,c) \
     do { \
@@ -49,7 +44,8 @@
 
 #define MS 1000L
 
-#define OTHER_COLOR(c)  ((c) == REVERSI_WHITE ? REVERSI_BLACK : REVERSI_WHITE)
+// xxx FATAL
+#define OTHER_COLOR(c)  ((c) == WHITE ? BLACK : WHITE)
 
 #define SWAP(a,b) \
     do { \
@@ -102,6 +98,6 @@ extern player_t cpu_random;
 
 void apply_move(board_t *b, int my_color, int move, bool highlight);
 void get_possible_moves(board_t *b, int my_color, possible_moves_t *pm);
-bool game_cancelled(void);
+bool move_cancelled(void);
 
 #endif

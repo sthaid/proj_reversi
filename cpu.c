@@ -148,7 +148,7 @@ static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_
     // - when game is not over
     //   - 1000 * corner_cnt_diff + number_of_possible_moves
     //     for example: 
-    //       . my_color is REVERSI_BLACK, 
+    //       . my_color is BLACK, 
     //       . black has 2 corner, and white has 1 corner
     //       . black has 5 possible moves
     //     result = 1000 * (2 - 1) + 5 = 1005
@@ -158,7 +158,7 @@ static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_
     // - second precedence to obtaining corners
     // - third precedence to number of possible moved
 
-    piece_cnt_diff = (my_color == REVERSI_BLACK 
+    piece_cnt_diff = (my_color == BLACK 
                       ? b->black_cnt - b->white_cnt 
                       : b->white_cnt - b->black_cnt);
     if (game_over) {
@@ -191,7 +191,7 @@ static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_
     // - when game is not over
     //   - 1000 * corner_cnt_diff + number_of_possible_moves
     //     for example: 
-    //       . my_color is REVERSI_BLACK, 
+    //       . my_color is BLACK, 
     //       . black has 2 corner, and white has 1 corner
     //       . black has 5 possible moves
     //     result = 1000 * (2 - 1) + 5 = 1005
@@ -202,7 +202,7 @@ static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_
     // - third precedence to number of possible moved
 
     if (game_over) {
-        piece_cnt_diff = (my_color == REVERSI_BLACK 
+        piece_cnt_diff = (my_color == BLACK 
                           ? b->black_cnt - b->white_cnt 
                           : b->white_cnt - b->black_cnt);
         if (piece_cnt_diff > 0) {
