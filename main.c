@@ -1,6 +1,8 @@
-// XXX config
 // XXX eval
-// XXX ctrls for HIGHLIGHT and PROJECTION
+
+// XXX android logging
+// XXX config,  need to still select players
+
 #include <common.h>
 
 #include <util_misc.h>
@@ -26,6 +28,11 @@
 #define GAME_REQUEST_UNDO        3
 
 #define FONTSZ  70   // xxx use 50 for linux later
+
+#define CONFIG_PLAYER_BLACK_IDX_STR  (config[0].value)
+#define CONFIG_PLAYER_WHITE_IDX_STR  (config[1].value)
+#define CONFIG_SHOW_MOVE_YN          (config[2].value[0])
+#define CONFIG_SHOW_EVAL_YN          (config[3].value[0])
 
 //
 // typedefs
@@ -66,14 +73,20 @@ static int                 max_game_moves;
 
 static player_t           *player_black;
 static player_t           *player_white;
-static player_t           *game_mode_player_black;  // xxx try to not have this global
-static player_t           *game_mode_player_white;
 static player_t           *avail_players[] = { &human, 
                                                &cpu_1, &cpu_2, &cpu_3, &cpu_4, &cpu_5, &cpu_6,
                                                &cpu_random };
 
 static tournament_t        tournament;
 static player_t           *tournament_players[] = { &cpu_1, &cpu_2, &cpu_3, &cpu_4, &cpu_5, /*&cpu_6*/ };
+
+char                       config_path[200];
+const int                  config_version = 1;
+config_t                   config[] = { { "player_black_idx",   "0" },
+                                        { "player_white_idx",   "5" },
+                                        { "show_move",          "N" },
+                                        { "show_eval",          "N" },
+                                        { "",                   ""  } };
 
 //
 // prototypes
@@ -83,6 +96,7 @@ static void initialize(void);
 
 static void *game_thread(void *cx);
 
+static void game_mode_get_players(player_t **pb, player_t **pw);
 static void tournament_get_players(player_t **pb, player_t **pw);
 static void tournament_tally_game_result(void);
 
@@ -124,25 +138,41 @@ int main(int argc, char **argv)
 
 // -----------------  INITIALIZE  -------------------------------------------------
 
+// xxx maybe put this in main
 static void initialize(void)
 {
     pthread_t tid;
+    const char *config_dir;
 
-    // xxx config file
-    // xxx - setting for projection
+    // read config
+#ifndef ANDROID
+    config_dir = getenv("HOME");
+    if (config_dir == NULL) {
+        FATAL("env var HOME not set\n");
+    }
+#else
+    config_dir = SDL_AndroidGetInternalStoragePath();
+    if (config_dir == NULL) {
+        FATAL("android internal storage path not set\n");
+    }
+#endif
+    sprintf(config_path, "%s/.reversi_config", config_dir);
+    if (config_read(config_path, config, config_version) < 0) {
+        FATAL("config_read failed for %s\n", config_path);
+    }
 
-    // xxx use config file
-    game_mode_player_black = &human;
-    game_mode_player_white = &cpu_5;
+    INFO("CONFIG_PLAYER_BLACK_IDX_STR = %s\n", CONFIG_PLAYER_BLACK_IDX_STR);
+    INFO("CONFIG_PLAYER_WHITE_IDX_STR = %s\n", CONFIG_PLAYER_WHITE_IDX_STR);
+    INFO("CONFIG_SHOW_MOVE_YN         = %c\n", CONFIG_SHOW_MOVE_YN);
+    INFO("CONFIG_SHOW_EVAL_YN         = %c\n", CONFIG_SHOW_EVAL_YN);
 
-    // xxx
-    player_black = game_mode_player_black;
-    player_white = game_mode_player_white;
-
-    // xxx init all vars (maybe needed on android)
-    
     // create game_thread
     pthread_create(&tid, NULL, game_thread, NULL);
+
+    // wait for player_black and player_white to be initialized by the game_thread
+    while (!player_black || !player_white) {
+        usleep(10*MS);
+    }
 }
 
 // -----------------  GAME THREAD  ------------------------------------------------
@@ -151,7 +181,6 @@ static void *game_thread(void *cx)
 {
     int  move, whose_turn;
     bool tournament_game;
-    bool highlight = true; //xxx  NOT in tournament
     int xxx_dummy;
     player_t *player;
 
@@ -185,12 +214,11 @@ restart:
             tournament_game = true;
             break;
         } else {
-            player_black = game_mode_player_black;
-            player_white = game_mode_player_white;
-        }
-        if (game_request == GAME_REQUEST_START) {
-            tournament_game = false;
-            break;
+            game_mode_get_players(&player_black, &player_white);
+            if (game_request == GAME_REQUEST_START) {
+                tournament_game = false;
+                break;
+            }
         }
         usleep(10*MS);
     }
@@ -242,7 +270,8 @@ again:
         game_moves[max_game_moves].board = game_moves[max_game_moves-1].board;
         max_game_moves++;
 
-        apply_move(&game_moves[max_game_moves-1].board, whose_turn, move, highlight);
+        apply_move(&game_moves[max_game_moves-1].board, whose_turn, move, 
+                   CONFIG_SHOW_MOVE_YN == 'Y' && !tournament_game);
     }
 
     // game is over
@@ -263,6 +292,22 @@ again:
     goto restart;
 
     return NULL;
+}
+
+static void game_mode_get_players(player_t **pb, player_t **pw)
+{
+    int pbidx, pwidx;
+
+    if (sscanf(CONFIG_PLAYER_BLACK_IDX_STR, "%d", &pbidx) != 1 ||
+        sscanf(CONFIG_PLAYER_WHITE_IDX_STR, "%d", &pwidx) != 1)
+    {
+        FATAL("config idx str invalid\n");
+    }
+
+    // xxx check range too
+
+    *pb = avail_players[pbidx];
+    *pw = avail_players[pwidx];
 }
 
 static void tournament_get_players(player_t **pb, player_t **pw)
@@ -452,9 +497,11 @@ bool move_cancelled(void)
 #define SDL_EVENT_CHOOSE_TOURNAMENT_MODE  (SDL_EVENT_USER_DEFINED + 20)
 #define SDL_EVENT_GAME_START              (SDL_EVENT_USER_DEFINED + 21)
 #define SDL_EVENT_GAME_RESET              (SDL_EVENT_USER_DEFINED + 22)
-#define SDL_EVENT_HUMAN_MOVE_PASS         (SDL_EVENT_USER_DEFINED + 23)
-#define SDL_EVENT_HUMAN_UNDO              (SDL_EVENT_USER_DEFINED + 24)
-#define SDL_EVENT_HUMAN_MOVE_SELECT       (SDL_EVENT_USER_DEFINED + 25)   // length 100
+#define SDL_EVENT_SHOW_EVAL               (SDL_EVENT_USER_DEFINED + 23)
+#define SDL_EVENT_SHOW_MOVE               (SDL_EVENT_USER_DEFINED + 24)
+#define SDL_EVENT_HUMAN_MOVE_PASS         (SDL_EVENT_USER_DEFINED + 25)
+#define SDL_EVENT_HUMAN_UNDO              (SDL_EVENT_USER_DEFINED + 26)
+#define SDL_EVENT_HUMAN_MOVE_SELECT       (SDL_EVENT_USER_DEFINED + 27)   // length 100
 
 // game mode, choose player events
 #define SDL_EVENT_CHOOSE_BLACK_PLAYER     (SDL_EVENT_USER_DEFINED + 130)
@@ -581,8 +628,8 @@ static void render_game_mode(pane_cx_t *pane_cx)
     render_board(pane_cx);
 
     // register common events
-    register_event(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
-    register_event(pane_cx, -1, -4, SDL_EVENT_QUIT_PGM, "QUIT");
+    register_event(pane_cx, 0, -4, SDL_EVENT_QUIT_PGM, "QUIT");
+    register_event(pane_cx, -1, -4, SDL_EVENT_HELP, "HELP");
 
     // if it is a human player's turn then
     if (game_state == GAME_STATE_ACTIVE && gm->player_is_human) {
@@ -636,6 +683,9 @@ static void render_game_mode(pane_cx_t *pane_cx)
         register_event(pane_cx, 2, 0, SDL_EVENT_GAME_START, "START");
     }
 
+    register_event(pane_cx, -1, 0, SDL_EVENT_SHOW_EVAL, "EVAL=%c", CONFIG_SHOW_EVAL_YN);
+    register_event(pane_cx, -1, 8, SDL_EVENT_SHOW_MOVE, "MOVE=%c", CONFIG_SHOW_MOVE_YN);
+
     // display game status
     if (game_state == GAME_STATE_RESET) {
         register_event(pane_cx, 4, 0, SDL_EVENT_CHOOSE_BLACK_PLAYER, "%s", player_black->name);
@@ -668,6 +718,14 @@ static int event_game_mode(pane_cx_t *pane_cx, sdl_event_t *event)
     case SDL_EVENT_HUMAN_MOVE_PASS:
         human_move_select = MOVE_PASS;
         break;
+    case SDL_EVENT_SHOW_EVAL:
+        CONFIG_SHOW_EVAL_YN = (CONFIG_SHOW_EVAL_YN == 'N' ? 'Y' : 'N');
+        config_write(config_path, config, config_version);
+        break;
+    case SDL_EVENT_SHOW_MOVE:
+        CONFIG_SHOW_MOVE_YN = (CONFIG_SHOW_MOVE_YN == 'N' ? 'Y' : 'N');
+        config_write(config_path, config, config_version);
+        break;
     case SDL_EVENT_HUMAN_UNDO:
         INFO("setting request UNDO\n");
         game_request = GAME_REQUEST_UNDO;
@@ -694,8 +752,9 @@ static void render_game_choose_player_mode(pane_cx_t *pane_cx)
 {
     render_board(pane_cx);
 
-    register_event(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
-    register_event(pane_cx, -1, -4, SDL_EVENT_QUIT_PGM, "QUIT");
+    register_event(pane_cx, 0, -4, SDL_EVENT_QUIT_PGM, "QUIT");
+    register_event(pane_cx, -1, -4, SDL_EVENT_HELP, "HELP");
+
     // game mode / choose player ...
 
     // register player selection events
@@ -741,8 +800,8 @@ static void render_tournament_mode(pane_cx_t *pane_cx)
     render_board(pane_cx);
 
     // xxx comment
-    register_event(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
-    register_event(pane_cx, -1, -4, SDL_EVENT_QUIT_PGM, "QUIT");
+    register_event(pane_cx, 0, -4, SDL_EVENT_QUIT_PGM, "QUIT");
+    register_event(pane_cx, -1, -4, SDL_EVENT_HELP, "HELP");
 
     // register event to go back to game mode
     register_event(pane_cx, 0, 0, SDL_EVENT_CHOOSE_GAME_MODE, "TOURNAMENT");
