@@ -1,11 +1,6 @@
-// XXX elim highlight
-// XXX eval
-
+// XXX tournament betwwen static_eval
+// XXX add new static eval
 // XXX config,  need to still select players
-
-// --- DONE
-// XXX move ANDROID ifdef to util
-// XXX android logging
 
 #include <common.h>
 
@@ -58,7 +53,8 @@ typedef struct {
     board_t          board;
     possible_moves_t possible_moves;
     bool             player_is_human;
-    char             eval[50];
+    char             eval_str[100];
+    unsigned char    highlight[10][10];
 } game_moves_t;
 
 //
@@ -73,7 +69,6 @@ static int                 win_height = DEFAULT_WIN_HEIGHT;
 static int                 game_state = GAME_STATE_RESET;
 static int                 game_request = GAME_REQUEST_NONE;
 
-static int                 board_highlight[10][10]; // xxx review
 static game_moves_t        game_moves[150];
 static int                 max_game_moves;
 
@@ -172,14 +167,14 @@ static void *game_thread(void *cx)
 {
     int  move, whose_turn;
     bool tournament_game;
-    int xxx_dummy;
     player_t *player;
 
 restart:
     // init game  xxx or just inline may be clearer
-    //AAA review and cleanup
-    memset(game_moves, 0, sizeof(game_moves));
+    //XXX review and cleanup
 
+    // xxx
+    memset(game_moves, 0, sizeof(game_moves));
     game_moves[0].board.pos[4][4] = WHITE;
     game_moves[0].board.pos[4][5] = BLACK;
     game_moves[0].board.pos[5][4] = BLACK;
@@ -188,8 +183,7 @@ restart:
     game_moves[0].board.white_cnt = 2;
     max_game_moves = 1;
 
-    memset(board_highlight, 0, sizeof(board_highlight));
-
+    // xxx
     game_state = GAME_STATE_RESET;
     __sync_synchronize();
 
@@ -223,20 +217,29 @@ restart:
     // xxx comments and cleanup
     while (true) {
 again:
+        // xxx
         whose_turn = (max_game_moves & 1) ? BLACK : WHITE;
         player = (whose_turn == BLACK ? player_black : player_white);
 
+        // set game_moves fields:
+        // - player_is_human  xxx describe how these are all used
+        // - possible_moves  xxx 
         game_moves[max_game_moves-1].player_is_human = (strcasecmp(player->name, "human") == 0);
-
         get_possible_moves(&game_moves[max_game_moves-1].board, whose_turn, 
                            &game_moves[max_game_moves-1].possible_moves);  
 
-        move = player->get_move(&game_moves[max_game_moves-1].board, whose_turn, &xxx_dummy);
+        // get move by calling player->get_move; 
+        // this may also set game_moves field:
+        // - eval_str - xxx when is this set, and how used
+        move = player->get_move(&game_moves[max_game_moves-1].board, whose_turn, 
+                                game_moves[max_game_moves-1].eval_str);
 
+        // xxx
         if (move == MOVE_GAME_OVER) {
             break;
         }
 
+        // xxx
         if (game_request != GAME_REQUEST_NONE) {
             if (game_request == GAME_REQUEST_UNDO) {
                 if (max_game_moves > 2) {
@@ -253,16 +256,23 @@ again:
             }
         }
 
+        // xxx
         if (move == MOVE_NONE) {
             FATAL("invalid move %d\n", move);
         }
 
+        // add new entry to game_moves, for the next player's move, and set fields
+        // - board - is first set to a copy of the current board, and then 
+        //   apply_move is called to update the board based on the move determined above0
+        // - eval_str - is copied from the current eval_str
         memset(&game_moves[max_game_moves], 0, sizeof(game_moves_t));
         game_moves[max_game_moves].board = game_moves[max_game_moves-1].board;
+        strcpy(game_moves[max_game_moves].eval_str, game_moves[max_game_moves-1].eval_str);
         max_game_moves++;
 
         apply_move(&game_moves[max_game_moves-1].board, whose_turn, move, 
-                   CONFIG_SHOW_MOVE_YN == 'Y' && !tournament_game);
+                   (CONFIG_SHOW_MOVE_YN == 'Y' && !tournament_game 
+                    ? game_moves[max_game_moves-1].highlight : NULL));
     }
 
     // game is over
@@ -335,7 +345,7 @@ static void tournament_tally_game_result(void)
 static int r_incr_tbl[8] = {0, -1, -1, -1,  0,  1, 1, 1};
 static int c_incr_tbl[8] = {1,  1,  0, -1, -1, -1, 0, 1};
 
-void  apply_move(board_t *b, int my_color, int move, bool highlight)
+void  apply_move(board_t *b, int my_color, int move, unsigned char highlight[][10])
 {
     int  r, c, i, j, other_color;
     int *my_color_cnt, *other_color_cnt;
@@ -364,7 +374,7 @@ void  apply_move(board_t *b, int my_color, int move, bool highlight)
     *my_color_cnt += 1;
 
     if (highlight) {
-        board_highlight[r][c] = 2;
+        highlight[r][c] = 2;
         usleep(200000);
     }
 
@@ -390,7 +400,7 @@ void  apply_move(board_t *b, int my_color, int move, bool highlight)
                 c_next += c_incr;
                 b->pos[r_next][c_next] = my_color;
                 if (highlight) {
-                    board_highlight[r_next][c_next] = 1;
+                    highlight[r_next][c_next] = 1;
                     usleep(200000);
                 }
             }
@@ -401,7 +411,7 @@ void  apply_move(board_t *b, int my_color, int move, bool highlight)
 
     if (highlight) {
         sleep(1);
-        memset(board_highlight, 0, sizeof(board_highlight));
+        memset(highlight, 0, 100);  // xxx 100?
     }
 
     if (!succ) {
@@ -649,12 +659,12 @@ static void render_game_mode(pane_cx_t *pane_cx)
         // if there are no possible moves for this player then
         // register for the HUMAN_MOVE_PASS event
         if (pm->max == 0) {
-            register_event(pane_cx, 7.5, 0, SDL_EVENT_HUMAN_MOVE_PASS, "PASS");
+            register_event(pane_cx, 9, 10, SDL_EVENT_HUMAN_MOVE_PASS, "PASS");
         }
 
         // register for the HUMAN_UNDO event
         if (max_game_moves > 2) {
-            register_event(pane_cx, 7.5, 10, SDL_EVENT_HUMAN_UNDO, "UNDO");
+            register_event(pane_cx, 9, 0, SDL_EVENT_HUMAN_UNDO, "UNDO");
         }
     }
 
@@ -685,6 +695,25 @@ static void render_game_mode(pane_cx_t *pane_cx)
         board_t *b = &game_moves[max_game_moves-1].board;
         print(pane_cx, 4, 0, "%5s %2d", player_black->name, b->black_cnt);
         print(pane_cx, 5.5, 0, "%5s %2d", player_white->name, b->white_cnt);
+    }
+
+    if (game_state == GAME_STATE_COMPLETE) {
+        board_t *b = &gm->board;
+        print(pane_cx, 7, 0, "GAME OVER");
+        if (b->black_cnt == b->white_cnt) {
+            print(pane_cx, 8.5, 0, "TIE");
+        } else if (b->black_cnt > b->white_cnt) {
+            char *name = (strcmp(player_black->name, player_white->name) != 0
+                          ? player_black->name : "BLACK");
+            print(pane_cx, 8.5, 0, "%s WINS BY %d", name, b->black_cnt - b->white_cnt);
+        } else {
+            char *name = (strcmp(player_black->name, player_white->name) != 0
+                          ? player_white->name : "WHITE");
+            print(pane_cx, 8.5, 0, "%s WINS BY %d", name, b->white_cnt - b->black_cnt);
+        }
+    } else if (CONFIG_SHOW_EVAL_YN == 'Y' && gm->eval_str[0] != '\0') {
+        // XXX, one player must be human, but not both
+        print(pane_cx, 7, 0, "%s", gm->eval_str);  // xxx or fix sdl to just return
     }
 }
 
@@ -869,6 +898,7 @@ static int event_help_mode(pane_cx_t *pane_cx, sdl_event_t *event)
 static void render_board(pane_cx_t *pane_cx)
 {
     rect_t *pane = &pane_cx->pane;
+    game_moves_t *gm = &game_moves[max_game_moves-1];
     int r, c, color;
     rect_t loc;
 
@@ -876,9 +906,9 @@ static void render_board(pane_cx_t *pane_cx)
     for (r = 1; r <= 8; r++) {
         for (c = 1; c <= 8; c++) {
             RC_TO_LOC(r,c,loc);
-            color = (board_highlight[r][c] == 0 ? GREEN : 
-                     board_highlight[r][c] == 1 ? LIGHT_BLUE : 
-                                                  BLUE);
+            color = (gm->highlight[r][c] == 0 ? GREEN : 
+                     gm->highlight[r][c] == 1 ? LIGHT_BLUE : 
+                                                BLUE);
             sdl_render_fill_rect(pane, &loc, color);
         }
     }
@@ -886,11 +916,10 @@ static void render_board(pane_cx_t *pane_cx)
     // draw the black and white pieces 
     for (r = 1; r <= 8; r++) {
         for (c = 1; c <= 8; c++) {
-            board_t *b = &game_moves[max_game_moves-1].board;
             RC_TO_LOC(r,c,loc);
-            if (b->pos[r][c] == BLACK) {
+            if (gm->board.pos[r][c] == BLACK) {
                 sdl_render_texture(pane, loc.x+12, loc.y+12, black_circle);
-            } else if (b->pos[r][c] == WHITE) {
+            } else if (gm->board.pos[r][c] == WHITE) {
                 sdl_render_texture(pane, loc.x+12, loc.y+12, white_circle);
             }
         }

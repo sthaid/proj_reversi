@@ -1,21 +1,18 @@
 #include <common.h>
 
-static int human_get_move(board_t *b, int color, int *b_eval);
+static int human_get_move(board_t *b, int color, char *eval_str);
 
 player_t human = {"HUMAN", human_get_move};
 
 // --------------------------------------------------------------------------
 
 // xxx make const b
-static int human_get_move(board_t *b, int my_color, int *b_eval)
+static int human_get_move(board_t *b, int my_color, char *eval_str)
 {
     bool             valid_move;
     possible_moves_t pm;
     int              move;
     int              i;
-
-    // there is no board evaluation performed
-    *b_eval = BOARD_EVAL_NONE;
 
     // get possible moves
     get_possible_moves(b, my_color, &pm);

@@ -1,18 +1,15 @@
 #include <common.h>
 
-static int cpu_random_get_move(board_t *b, int color, int *b_eval);
+static int cpu_random_get_move(board_t *b, int color, char *eval_str);
 
 player_t cpu_random = {"CPU-RANDOM", cpu_random_get_move};
 
 // -----------------  XXX  --------------------------------------------------
 
 // xxx make const b
-static int cpu_random_get_move(board_t *b, int my_color, int *b_eval)
+static int cpu_random_get_move(board_t *b, int my_color, char *eval_str)
 {
     possible_moves_t pm, other_pm;
-
-    // there is no board evaluation performed
-    *b_eval = BOARD_EVAL_NONE;
 
     // get possible moves
     get_possible_moves(b, my_color, &pm);

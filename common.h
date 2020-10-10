@@ -30,8 +30,6 @@
 #define MOVE_GAME_OVER  -2
 #define MOVE_NONE       -9
 
-#define BOARD_EVAL_NONE 999999
-
 #define MOVE_TO_RC(m,r,c) \
     do { \
         (r) = (m) / 10; \
@@ -72,7 +70,7 @@ typedef struct {
 
 typedef struct {
     char name[100];
-    int (*get_move)(board_t *b, int my_color, int *b_eval);
+    int (*get_move)(board_t *b, int my_color, char *eval_str);
 } player_t;
 
 typedef struct {
@@ -96,7 +94,7 @@ extern player_t cpu_random;
 // prototypes
 //
 
-void apply_move(board_t *b, int my_color, int move, bool highlight);
+void apply_move(board_t *b, int my_color, int move, unsigned char highlight[][10]);
 void get_possible_moves(board_t *b, int my_color, possible_moves_t *pm);
 bool move_cancelled(void);
 

@@ -5,6 +5,7 @@ typedef struct {
     int move;
 } val_t;
 
+static void create_eval_str(int eval_int, char *eval_str);
 static int eval(board_t *b, int my_color, int recursion_depth, int max_recursion_depth, int *ret_move);
 static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_t *pm);
 
@@ -16,11 +17,12 @@ static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_
 //  50 is okay for a high level, there are occasional long delays
 
 #define DEFPROC_CPU_GET_MOVE(mrd,xxx) \
-static int cpu_##mrd##_get_move(board_t *b, int my_color, int *b_eval) \
+static int cpu_##mrd##_get_move(board_t *b, int my_color, char *eval_str) \
 { \
-    int move; \
+    int move, eval_int; \
     int max_recursion_depth = (b->black_cnt + b->white_cnt > (xxx) ? 100 : (mrd)); \
-    *b_eval = eval(b, my_color, 0, max_recursion_depth, &move); \
+    eval_int = eval(b, my_color, 0, max_recursion_depth, &move); \
+    create_eval_str(eval_int, eval_str); \
     if (move == MOVE_NONE) FATAL("invalid move\n"); \
     return move; \
 } \
@@ -32,6 +34,29 @@ DEFPROC_CPU_GET_MOVE(3,53)
 DEFPROC_CPU_GET_MOVE(4,52)
 DEFPROC_CPU_GET_MOVE(5,51)
 DEFPROC_CPU_GET_MOVE(6,51)
+
+// -----------------  xxx  --------------------------------------------------
+
+static void create_eval_str(int eval_int, char *eval_str)
+{
+    if (eval_str == NULL) {
+        return;
+    }
+
+    if (eval_int > 10000) {
+        sprintf(eval_str, "CPU WILL WIN BY %d", eval_int-10000);
+    } else if (eval_int == 10000) {
+        sprintf(eval_str, "CPU WILL TIE OR WIN");
+    } else if (eval_int < -10000) {
+        sprintf(eval_str, "HUMAN CAN WIN BY %d", -eval_int-10000);
+    } else if (eval_int > 900) {
+        sprintf(eval_str, "CPU ADVANTAGE");
+    } else if (eval_int < -900) {
+        sprintf(eval_str, "HUMAN ADVANTAGE");
+    } else {
+        eval_str[0] = '\0';
+    }
+}
 
 // -----------------  xxx  --------------------------------------------------
 
@@ -93,7 +118,7 @@ static int eval(board_t *b, int my_color, int recursion_depth, int max_recursion
         // make a copy of the board, and apply the move to it,
         // this is now the board that the oppenent needs to choose a move from
         board_t new_board = *b;
-        apply_move(&new_board, my_color, pm.move[i], false);
+        apply_move(&new_board, my_color, pm.move[i], NULL);
 
         // obtaine the opponent's board eval metric via recursive call to eval
         val[i].val = eval(&new_board, other_color, recursion_depth+1, max_recursion_depth, NULL);
@@ -132,6 +157,8 @@ static int eval(board_t *b, int my_color, int recursion_depth, int max_recursion
     *ret_move = val[i].move;
     return -min_val;
 }
+
+// -----------------  xxx  --------------------------------------------------
 
 static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_t *pm)
 {
