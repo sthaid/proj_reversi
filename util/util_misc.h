@@ -102,8 +102,8 @@ typedef struct {
     char         value[MAX_CONFIG_VALUE_STR];
 } config_t;
 
-int config_read(char * config_path, config_t * config, int config_version);
-int config_write(char * config_path, config_t * config, int config_version);
+int config_read(char * config_filename, config_t * config, int config_version);
+int config_write(void);
 
 // -----------------  NETWORKING  ----------------------------------------
 

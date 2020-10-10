@@ -21,7 +21,38 @@
 
 #include "util_misc.h"
 
+#ifdef ANDROID
+#include <SDL.h>
+#endif
+
 // -----------------  LOGMSG  --------------------------------------------
+
+#ifndef ANDROID
+void logmsg(char *lvl, const char *func, char *fmt, ...) 
+{
+    va_list ap;
+    char    msg[1000];
+    int     len;
+    char    time_str[MAX_TIME_STR];
+
+    // construct msg
+    va_start(ap, fmt);
+    len = vsnprintf(msg, sizeof(msg), fmt, ap);
+    va_end(ap);
+
+    // remove terminating newline
+    if (len > 0 && msg[len-1] == '\n') {
+        msg[len-1] = '\0';
+        len--;
+    }
+
+    // log to stderr 
+    fprintf(stderr, "%s %s %s: %s\n",
+            time2str(time_str, get_real_time_us(), false, true, true),
+            lvl, func, msg);
+}
+
+#else
 
 void logmsg(char *lvl, const char *func, char *fmt, ...) 
 {
@@ -29,35 +60,47 @@ void logmsg(char *lvl, const char *func, char *fmt, ...)
     char    msg[1000];
     int     len;
     char    time_str[MAX_TIME_STR];
-    bool    print_prefix;
-
-    // if fmt begins with '#' then do not print the prefix
-    print_prefix = (fmt[0] != '#');
-    if (print_prefix == false) {
-        fmt++;
-    }
 
     // construct msg
     va_start(ap, fmt);
-    vsnprintf(msg, sizeof(msg), fmt, ap);
+    len = vsnprintf(msg, sizeof(msg), fmt, ap);
     va_end(ap);
 
     // remove terminating newline
-    len = strlen(msg);
     if (len > 0 && msg[len-1] == '\n') {
         msg[len-1] = '\0';
         len--;
     }
 
-    // log to stderr 
-    if (print_prefix) {
-        fprintf(stderr, "%s %s %s: %s\n",
-            time2str(time_str, get_real_time_us(), false, true, true),
-            lvl, func, msg);
+    // log the message
+    if (strcmp(lvl, "INFO") == 0) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                    "%s %s %s: %s\n",
+                    time2str(time_str, time(NULL), false),
+                    lvl, func, msg);
+    } else if (strcmp(lvl, "WARN") == 0) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                    "%s %s %s: %s\n",
+                    time2str(time_str, time(NULL), false),
+                    lvl, func, msg);
+    } else if (strcmp(lvl, "FATAL") == 0) {
+        SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION,
+                        "%s %s %s: %s\n",
+                        time2str(time_str, time(NULL), false),
+                        lvl, func, msg);
+    } else if (strcmp(lvl, "DEBUG") == 0) {
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION,
+                     "%s %s %s: %s\n",
+                     time2str(time_str, time(NULL), false),
+                     lvl, func, msg);
     } else {
-        fprintf(stderr, "%s\n", msg);
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                     "%s %s %s: %s\n",
+                     time2str(time_str, time(NULL), false),
+                     lvl, func, msg);
     }
 }
+#endif
 
 // -----------------  TIME UTILS  -----------------------------------------
 
@@ -126,13 +169,38 @@ char * time2str(char * str, int64_t us, bool gmt, bool display_ms, bool display_
 
 // -----------------  CONFIG READ / WRITE  -------------------------------
 
-int config_read(char * config_path, config_t * config, int config_version)
+static char      config_path[200];
+static config_t *config;
+static int       config_version;
+
+int config_read(char * config_filename, config_t * config_arg, int config_version_arg)
 {
-    FILE * fp;
-    int    i, version=0, len;
-    char * name;
-    char * value;
-    char   s[100] = "";
+    FILE       *fp;
+    int         i, version=0, len;
+    char       *name;
+    char       *value;
+    char        s[100] = "";
+    const char *config_dir;
+
+    // get the directory to use for the config file, and
+    // create the config pathname
+#ifndef ANDROID
+    config_dir = getenv("HOME");
+    if (config_dir == NULL) {
+        FATAL("env var HOME not set\n");
+    }
+#else
+    config_dir = SDL_AndroidGetInternalStoragePath();
+    if (config_dir == NULL) {
+        FATAL("android internal storage path not set\n");
+    }
+#endif
+    sprintf(config_path, "%s/%s", config_dir, config_filename);
+
+    // save global copies of config_version_arg, and config_arg;
+    // these are used in subsequent calls to config_write
+    config_version = config_version_arg;
+    config = config_arg;
 
     // open config_file and verify version, 
     // if this fails then write the config file with default values
@@ -145,7 +213,7 @@ int config_read(char * config_path, config_t * config, int config_version)
             fclose(fp);
         }
         INFO("creating default config file %s, version=%d\n", config_path, config_version);
-        return config_write(config_path, config, config_version);
+        return config_write();
     }
 
     // read config entries
@@ -184,7 +252,7 @@ int config_read(char * config_path, config_t * config, int config_version)
     return 0;
 }
 
-int config_write(char * config_path, config_t * config, int config_version)
+int config_write(void)
 {
     FILE * fp;
     int    i;

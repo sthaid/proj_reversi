@@ -1,7 +1,11 @@
+// XXX elim highlight
 // XXX eval
 
-// XXX android logging
 // XXX config,  need to still select players
+
+// --- DONE
+// XXX move ANDROID ifdef to util
+// XXX android logging
 
 #include <common.h>
 
@@ -29,6 +33,8 @@
 
 #define FONTSZ  70   // xxx use 50 for linux later
 
+#define CONFIG_FILENAME ".reversi_config"
+#define CONFIG_VERSION  1
 #define CONFIG_PLAYER_BLACK_IDX_STR  (config[0].value)
 #define CONFIG_PLAYER_WHITE_IDX_STR  (config[1].value)
 #define CONFIG_SHOW_MOVE_YN          (config[2].value[0])
@@ -80,8 +86,6 @@ static player_t           *avail_players[] = { &human,
 static tournament_t        tournament;
 static player_t           *tournament_players[] = { &cpu_1, &cpu_2, &cpu_3, &cpu_4, &cpu_5, /*&cpu_6*/ };
 
-char                       config_path[200];
-const int                  config_version = 1;
 config_t                   config[] = { { "player_black_idx",   "0" },
                                         { "player_white_idx",   "5" },
                                         { "show_move",          "N" },
@@ -142,23 +146,10 @@ int main(int argc, char **argv)
 static void initialize(void)
 {
     pthread_t tid;
-    const char *config_dir;
 
     // read config
-#ifndef ANDROID
-    config_dir = getenv("HOME");
-    if (config_dir == NULL) {
-        FATAL("env var HOME not set\n");
-    }
-#else
-    config_dir = SDL_AndroidGetInternalStoragePath();
-    if (config_dir == NULL) {
-        FATAL("android internal storage path not set\n");
-    }
-#endif
-    sprintf(config_path, "%s/.reversi_config", config_dir);
-    if (config_read(config_path, config, config_version) < 0) {
-        FATAL("config_read failed for %s\n", config_path);
+    if (config_read(CONFIG_FILENAME, config, CONFIG_VERSION) < 0) {
+        FATAL("config_read failed\n");
     }
 
     INFO("CONFIG_PLAYER_BLACK_IDX_STR = %s\n", CONFIG_PLAYER_BLACK_IDX_STR);
@@ -720,11 +711,11 @@ static int event_game_mode(pane_cx_t *pane_cx, sdl_event_t *event)
         break;
     case SDL_EVENT_SHOW_EVAL:
         CONFIG_SHOW_EVAL_YN = (CONFIG_SHOW_EVAL_YN == 'N' ? 'Y' : 'N');
-        config_write(config_path, config, config_version);
+        config_write();
         break;
     case SDL_EVENT_SHOW_MOVE:
         CONFIG_SHOW_MOVE_YN = (CONFIG_SHOW_MOVE_YN == 'N' ? 'Y' : 'N');
-        config_write(config_path, config, config_version);
+        config_write();
         break;
     case SDL_EVENT_HUMAN_UNDO:
         INFO("setting request UNDO\n");
