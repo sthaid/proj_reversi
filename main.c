@@ -52,7 +52,7 @@ typedef struct {
 typedef struct {
     board_t          board;
     possible_moves_t possible_moves;
-    bool             player_is_human;
+    bool             player_is_human;  // xxx eliminate this
     char             eval_str[100];
     unsigned char    highlight[10][10];
 } game_moves_t;
@@ -713,7 +713,12 @@ static void render_game_mode(pane_cx_t *pane_cx)
         }
     } else if (CONFIG_SHOW_EVAL_YN == 'Y' && gm->eval_str[0] != '\0') {
         // XXX, one player must be human, but not both
-        print(pane_cx, 7, 0, "%s", gm->eval_str);  // xxx or fix sdl to just return
+        int human_players_cnt = 0;
+        if (strcasecmp(player_black->name, "human") == 0) human_players_cnt++;
+        if (strcasecmp(player_white->name, "human") == 0) human_players_cnt++;
+        if (human_players_cnt == 1) {
+            print(pane_cx, 7, 0, "%s", gm->eval_str);  // xxx or fix sdl to just return
+        }
     }
 }
 
