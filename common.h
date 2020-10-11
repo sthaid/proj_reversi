@@ -87,8 +87,7 @@ bool debug_enabled;
 int human_move_select;
 
 extern player_t human;
-extern player_t cpu_1, cpu_2, cpu_3, cpu_4, cpu_5, cpu_6;
-extern player_t cpu_random;
+extern player_t CPU1, CPU2, CPU3, CPU4, CPU5, CPU6;
 
 //
 // prototypes

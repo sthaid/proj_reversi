@@ -1,3 +1,12 @@
+// XXX next static eval
+// - 1000000 for winning / /loosing
+// -  100000 for corners
+// -  -10000 for gateway squares to corners
+// -       1 for good possible moves
+//
+
+// XXX try making a better static_eval, by excluding gateway to corne from pm.max
+
 #include <common.h>
 
 typedef struct {
@@ -5,35 +14,36 @@ typedef struct {
     int move;
 } val_t;
 
+static int max_recursion_depth;
+static int (*static_eval)(board_t *b, int my_color, bool game_over, possible_moves_t *pm);
+
 static void create_eval_str(int eval_int, char *eval_str);
-static int eval(board_t *b, int my_color, int recursion_depth, int max_recursion_depth, int *ret_move);
-static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_t *pm);
+static int eval(board_t *b, int my_color, int recursion_depth, int *ret_move);
+static int static_eval_a(board_t *b, int my_color, bool game_over, possible_moves_t *pm);
 
 // -----------------  xxx  --------------------------------------------------
 
-// XXX also adjust the 52
-// XXX notes
-//  51 is okay for a high level, there are occasional long delays
-//  50 is okay for a high level, there are occasional long delays
+// xxx comments
 
-#define DEFPROC_CPU_GET_MOVE(mrd,xxx) \
-static int cpu_##mrd##_get_move(board_t *b, int my_color, char *eval_str) \
+#define DEFPROC_CPU_GET_MOVE(name,mrd,piececnt,seid) \
+static int name##_get_move(board_t *b, int my_color, char *eval_str) \
 { \
     int move, eval_int; \
-    int max_recursion_depth = (b->black_cnt + b->white_cnt > (xxx) ? 100 : (mrd)); \
-    eval_int = eval(b, my_color, 0, max_recursion_depth, &move); \
+    max_recursion_depth = (b->black_cnt + b->white_cnt > (piececnt) ? 100 : (mrd)); \
+    static_eval = static_eval_##seid; \
+    eval_int = eval(b, my_color, 0, &move); \
     create_eval_str(eval_int, eval_str); \
     if (move == MOVE_NONE) FATAL("invalid move\n"); \
     return move; \
 } \
-player_t cpu_##mrd = {"CPU-" #mrd, cpu_##mrd##_get_move};
+player_t name = {#name, name##_get_move};
 
-DEFPROC_CPU_GET_MOVE(1,55)
-DEFPROC_CPU_GET_MOVE(2,54)
-DEFPROC_CPU_GET_MOVE(3,53)
-DEFPROC_CPU_GET_MOVE(4,52)
-DEFPROC_CPU_GET_MOVE(5,51)
-DEFPROC_CPU_GET_MOVE(6,51)
+DEFPROC_CPU_GET_MOVE(CPU1,1,55,a)
+DEFPROC_CPU_GET_MOVE(CPU2,2,54,a)
+DEFPROC_CPU_GET_MOVE(CPU3,3,53,a)
+DEFPROC_CPU_GET_MOVE(CPU4,4,52,a)
+DEFPROC_CPU_GET_MOVE(CPU5,5,51,a)
+DEFPROC_CPU_GET_MOVE(CPU6,6,51,a)
 
 // -----------------  xxx  --------------------------------------------------
 
@@ -43,15 +53,15 @@ static void create_eval_str(int eval_int, char *eval_str)
         return;
     }
 
-    if (eval_int > 10000) {
-        sprintf(eval_str, "CPU WILL WIN BY %d", eval_int-10000);
-    } else if (eval_int == 10000) {
+    if (eval_int > 1000000) {
+        sprintf(eval_str, "CPU WILL WIN BY %d", eval_int-1000000);
+    } else if (eval_int == 1000000) {
         sprintf(eval_str, "CPU WILL TIE OR WIN");
-    } else if (eval_int < -10000) {
-        sprintf(eval_str, "HUMAN CAN WIN BY %d", -eval_int-10000);
-    } else if (eval_int > 900) {
+    } else if (eval_int < -1000000) {
+        sprintf(eval_str, "HUMAN CAN WIN BY %d", -eval_int-1000000);
+    } else if (eval_int > 500) {
         sprintf(eval_str, "CPU ADVANTAGE");
-    } else if (eval_int < -900) {
+    } else if (eval_int < -500) {
         sprintf(eval_str, "HUMAN ADVANTAGE");
     } else {
         eval_str[0] = '\0';
@@ -60,7 +70,7 @@ static void create_eval_str(int eval_int, char *eval_str)
 
 // -----------------  xxx  --------------------------------------------------
 
-static int eval(board_t *b, int my_color, int recursion_depth, int max_recursion_depth, int *ret_move)
+static int eval(board_t *b, int my_color, int recursion_depth, int *ret_move)
 {
     int              other_color = OTHER_COLOR(my_color);
     int              i, min_val, min_val_cnt, dummy_ret_move;
@@ -107,7 +117,7 @@ static int eval(board_t *b, int my_color, int recursion_depth, int max_recursion
     // if there are no possible moves then
     // return the board eval metric via recursive call
     if (pm.max == 0) {
-        int v = eval(b, other_color, recursion_depth+1, max_recursion_depth, NULL);
+        int v = eval(b, other_color, recursion_depth+1, NULL);
         *ret_move = MOVE_PASS;
         return -v;
     }
@@ -121,7 +131,7 @@ static int eval(board_t *b, int my_color, int recursion_depth, int max_recursion
         apply_move(&new_board, my_color, pm.move[i], NULL);
 
         // obtaine the opponent's board eval metric via recursive call to eval
-        val[i].val = eval(&new_board, other_color, recursion_depth+1, max_recursion_depth, NULL);
+        val[i].val = eval(&new_board, other_color, recursion_depth+1, NULL);
         val[i].move = pm.move[i];
 
         // keep track of the min_val, which is used by the code below
@@ -160,91 +170,72 @@ static int eval(board_t *b, int my_color, int recursion_depth, int max_recursion
 
 // -----------------  xxx  --------------------------------------------------
 
-static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_t *pm)
+// xxx comments
+#define EVAL_CORNER(r,c) \
+    do { \
+        if (b->pos[r][c] == NONE) { \
+            ; \
+        } else if (b->pos[r][c] == my_color) { \
+            corner_cnt_my_color++; \
+        } else { \
+            corner_cnt_other_color++; \
+        } \
+    } while (0) 
+
+// xxx comments
+// if corner is occupied || diag gateway not occupied
+//     ;
+// else if diagnol gateway == my color
+//   gateway_cnt_my_color++;
+// else 
+//   gateway_cnt_other_color++;
+#define EVAL_GATEWAY_TO_CORNER(r,c,rin,cin) \
+    do { \
+        if (b->pos[r][c] != NONE || b->pos[rin][cin] == NONE) { \
+            ; \
+        } else if (b->pos[rin][cin] == my_color) { \
+            gateway_cnt_my_color++; \
+        } else { \
+            gateway_cnt_other_color++; \
+        } \
+    } while (0)
+
+static int static_eval_a(board_t *b, int my_color, bool game_over, possible_moves_t *pm)
 {
-    int piece_cnt_diff, corner_cnt_diff;
-    int other_color = OTHER_COLOR(my_color);
+    int piece_cnt_diff;
+    int corner_cnt_my_color = 0, corner_cnt_other_color = 0;
+    int gateway_cnt_my_color = 0, gateway_cnt_other_color = 0;
+    
+    // 1000000 for winning
+    //  100000 for corners
+    //  -10000 for gateway squares to corners
+    //       1 for  possible moves
 
-    // XXX update this comment
-    // XXX play this against the original 
-
-    // the static evaluation return value is:
-    // - when game is over:
-    //   - if winner:  10000 + piece_cnt_diff
-    //   - if loser:  -10000 + piece_cnt_diff  (note piece_cnt_diff is negative in this case)
-    // - when game is not over
-    //   - 1000 * corner_cnt_diff + number_of_possible_moves
-    //     for example: 
-    //       . my_color is BLACK, 
-    //       . black has 2 corner, and white has 1 corner
-    //       . black has 5 possible moves
-    //     result = 1000 * (2 - 1) + 5 = 1005
-
-    // this evaluation algorithm gives:
-    // - first precedence to winning
-    // - second precedence to obtaining corners
-    // - third precedence to number of possible moved
-
-    piece_cnt_diff = (my_color == BLACK 
-                      ? b->black_cnt - b->white_cnt 
-                      : b->white_cnt - b->black_cnt);
+    // xxx
     if (game_over) {
-        if (piece_cnt_diff > 0) {
-            return 10000 + piece_cnt_diff;
+        piece_cnt_diff = (my_color == BLACK ? b->black_cnt - b->white_cnt 
+                                            : b->white_cnt - b->black_cnt);
+        if (piece_cnt_diff >= 0) {
+            return 1000000 + piece_cnt_diff;
         } else {
-            return -10000 + piece_cnt_diff;
+            return -1000000 + piece_cnt_diff;
         }
     }
 
-    corner_cnt_diff = 0;
-    corner_cnt_diff += (b->pos[1][1] == my_color ? 1 : b->pos[1][1] == other_color ? -1 : 0);
-    corner_cnt_diff += (b->pos[1][8] == my_color ? 1 : b->pos[1][8] == other_color ? -1 : 0);
-    corner_cnt_diff += (b->pos[8][1] == my_color ? 1 : b->pos[8][1] == other_color ? -1 : 0);
-    corner_cnt_diff += (b->pos[8][8] == my_color ? 1 : b->pos[8][8] == other_color ? -1 : 0);
+    // corners
+    EVAL_CORNER(1,1);
+    EVAL_CORNER(1,8);
+    EVAL_CORNER(8,1);
+    EVAL_CORNER(8,8);
 
-    //return 1000 * corner_cnt_diff + pm->max;
-    return 1000 * corner_cnt_diff - piece_cnt_diff;
+    // gateway to corner
+    EVAL_GATEWAY_TO_CORNER(1,1, 2,2);
+    EVAL_GATEWAY_TO_CORNER(1,8, 2,7);
+    EVAL_GATEWAY_TO_CORNER(8,1, 7,2);
+    EVAL_GATEWAY_TO_CORNER(8,8, 7,7);
+
+    //  xxx
+    return 100000 * (corner_cnt_my_color - corner_cnt_other_color) + 
+           -10000 * (gateway_cnt_my_color - gateway_cnt_other_color) +
+           pm->max;
 }
-#if 0
-static int static_eval(board_t *b, int my_color, bool game_over, possible_moves_t *pm)
-{
-    int piece_cnt_diff, corner_cnt_diff;
-    int other_color = OTHER_COLOR(my_color);
-
-    // the static evaluation return value is:
-    // - when game is over:
-    //   - if winner:  10000 + piece_cnt_diff
-    //   - if loser:  -10000 + piece_cnt_diff  (note piece_cnt_diff is negative in this case)
-    // - when game is not over
-    //   - 1000 * corner_cnt_diff + number_of_possible_moves
-    //     for example: 
-    //       . my_color is BLACK, 
-    //       . black has 2 corner, and white has 1 corner
-    //       . black has 5 possible moves
-    //     result = 1000 * (2 - 1) + 5 = 1005
-
-    // this evaluation algorithm gives:
-    // - first precedence to winning
-    // - second precedence to obtaining corners
-    // - third precedence to number of possible moved
-
-    if (game_over) {
-        piece_cnt_diff = (my_color == BLACK 
-                          ? b->black_cnt - b->white_cnt 
-                          : b->white_cnt - b->black_cnt);
-        if (piece_cnt_diff > 0) {
-            return 10000 + piece_cnt_diff;
-        } else {
-            return -10000 + piece_cnt_diff;
-        }
-    }
-
-    corner_cnt_diff = 0;
-    corner_cnt_diff += (b->pos[1][1] == my_color ? 1 : b->pos[1][1] == other_color ? -1 : 0);
-    corner_cnt_diff += (b->pos[1][8] == my_color ? 1 : b->pos[1][8] == other_color ? -1 : 0);
-    corner_cnt_diff += (b->pos[8][1] == my_color ? 1 : b->pos[8][1] == other_color ? -1 : 0);
-    corner_cnt_diff += (b->pos[8][8] == my_color ? 1 : b->pos[8][8] == other_color ? -1 : 0);
-
-    return 1000 * corner_cnt_diff + pm->max;
-}
-#endif

@@ -74,12 +74,12 @@ static int                 max_game_moves;
 
 static player_t           *player_black;
 static player_t           *player_white;
-static player_t           *avail_players[] = { &human, 
-                                               &cpu_1, &cpu_2, &cpu_3, &cpu_4, &cpu_5, &cpu_6,
-                                               &cpu_random };
+static player_t           *avail_players[] = 
+                            { &human, &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, &CPU6, };
 
 static tournament_t        tournament;
-static player_t           *tournament_players[] = { &cpu_1, &cpu_2, &cpu_3, &cpu_4, &cpu_5, /*&cpu_6*/ };
+static player_t           *tournament_players[] = 
+                            { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, };
 
 config_t                   config[] = { { "player_black_idx",   "0" },
                                         { "player_white_idx",   "5" },
@@ -693,8 +693,8 @@ static void render_game_mode(pane_cx_t *pane_cx)
         register_event(pane_cx, 5.5, 0, SDL_EVENT_CHOOSE_WHITE_PLAYER, "%s", player_white->name);
     } else {
         board_t *b = &game_moves[max_game_moves-1].board;
-        print(pane_cx, 4, 0, "%5s %2d", player_black->name, b->black_cnt);
-        print(pane_cx, 5.5, 0, "%5s %2d", player_white->name, b->white_cnt);
+        print(pane_cx, 4, 0, "%-5s %2d", player_black->name, b->black_cnt);
+        print(pane_cx, 5.5, 0, "%-5s %2d", player_white->name, b->white_cnt);
     }
 
     if (game_state == GAME_STATE_COMPLETE) {
