@@ -1,7 +1,8 @@
-// XXX config,  need to still select players
+// XXX indicate player's color
 // XXX use different window sizzes
+// XXX emphasize GAME OVER
+
 // XXX comments and total review
-// XXX indicate whose move it is and the player's color
 
 #include <common.h>
 
@@ -695,10 +696,20 @@ static void render_game_mode(pane_cx_t *pane_cx)
         register_event(pane_cx, 5.5, 0, SDL_EVENT_CHOOSE_WHITE_PLAYER, "%s", player_white->name);
     } else {
         board_t *b = &game_moves[max_game_moves-1].board;
-        print(pane_cx, 4, 0, "%-5s %2d", player_black->name, b->black_cnt);
-        print(pane_cx, 5.5, 0, "%-5s %2d", player_white->name, b->white_cnt);
+        int whose_turn = ((game_state != GAME_STATE_ACTIVE) ? NONE  :
+                          (max_game_moves & 1)              ? BLACK : 
+                                                              WHITE);
+        print(pane_cx, 4, 0, "%-5s %2d %s", 
+              player_black->name, 
+              b->black_cnt,
+              whose_turn == BLACK ? "MOVE" : "");
+        print(pane_cx, 5.5, 0, "%-5s %2d %s", 
+              player_white->name, 
+              b->white_cnt,
+              whose_turn == WHITE ? "MOVE" : "");
     }
 
+    // display game completion or cpu evaluation status
     if (game_state == GAME_STATE_COMPLETE) {
         board_t *b = &gm->board;
         print(pane_cx, 7, 0, "GAME OVER");
