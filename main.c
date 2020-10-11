@@ -1,6 +1,7 @@
-// XXX tournament betwwen static_eval
-// XXX add new static eval
 // XXX config,  need to still select players
+// XXX use different window sizzes
+// XXX comments and total review
+// XXX indicate whose move it is and the player's color
 
 #include <common.h>
 
@@ -171,7 +172,7 @@ static void *game_thread(void *cx)
 
 restart:
     // init game  xxx or just inline may be clearer
-    //XXX review and cleanup
+    // xxx review and cleanup
 
     // xxx
     memset(game_moves, 0, sizeof(game_moves));
@@ -469,8 +470,9 @@ bool move_cancelled(void)
 // defines
 //
 
-#define CTLX  1015
-#define CTLY  0
+#define CTL_X    1015  // xxx needs equation
+#define CTL_Y    0
+#define CTL_COLS ((win_width - CTL_X) / sdl_font_char_width(FONTSZ))
 
 #define RC_TO_LOC(r,c,loc) \
     do { \
@@ -492,22 +494,22 @@ bool move_cancelled(void)
 #define SDL_EVENT_EXIT_HELP               (SDL_EVENT_USER_DEFINED + 5)
 
 // tournament mode events
-#define SDL_EVENT_CHOOSE_GAME_MODE        (SDL_EVENT_USER_DEFINED + 10)
+#define SDL_EVENT_SET_GAME_MODE           (SDL_EVENT_USER_DEFINED + 10)
 
 // game mode events
-#define SDL_EVENT_CHOOSE_TOURNAMENT_MODE  (SDL_EVENT_USER_DEFINED + 20)
-#define SDL_EVENT_GAME_START              (SDL_EVENT_USER_DEFINED + 21)
-#define SDL_EVENT_GAME_RESET              (SDL_EVENT_USER_DEFINED + 22)
-#define SDL_EVENT_SHOW_EVAL               (SDL_EVENT_USER_DEFINED + 23)
-#define SDL_EVENT_SHOW_MOVE               (SDL_EVENT_USER_DEFINED + 24)
-#define SDL_EVENT_HUMAN_MOVE_PASS         (SDL_EVENT_USER_DEFINED + 25)
-#define SDL_EVENT_HUMAN_UNDO              (SDL_EVENT_USER_DEFINED + 26)
-#define SDL_EVENT_HUMAN_MOVE_SELECT       (SDL_EVENT_USER_DEFINED + 27)   // length 100
+#define SDL_EVENT_SET_TOURNAMENT_MODE     (SDL_EVENT_USER_DEFINED + 20)
+#define SDL_EVENT_START_GAME              (SDL_EVENT_USER_DEFINED + 21)
+#define SDL_EVENT_RESET_GAME              (SDL_EVENT_USER_DEFINED + 22)
+#define SDL_EVENT_CHOOSE_BLACK_PLAYER     (SDL_EVENT_USER_DEFINED + 23)
+#define SDL_EVENT_CHOOSE_WHITE_PLAYER     (SDL_EVENT_USER_DEFINED + 24)
+#define SDL_EVENT_SHOW_EVAL               (SDL_EVENT_USER_DEFINED + 25)
+#define SDL_EVENT_SHOW_MOVE               (SDL_EVENT_USER_DEFINED + 26)
+#define SDL_EVENT_HUMAN_MOVE_PASS         (SDL_EVENT_USER_DEFINED + 27)
+#define SDL_EVENT_HUMAN_UNDO              (SDL_EVENT_USER_DEFINED + 28)
+#define SDL_EVENT_HUMAN_MOVE_SELECT       (SDL_EVENT_USER_DEFINED + 29)   // length 100
 
 // game mode, choose player events
-#define SDL_EVENT_CHOOSE_BLACK_PLAYER     (SDL_EVENT_USER_DEFINED + 130)
-#define SDL_EVENT_CHOOSE_WHITE_PLAYER     (SDL_EVENT_USER_DEFINED + 131)
-#define SDL_EVENT_CHOOSE_PLAYER_SELECT    (SDL_EVENT_USER_DEFINED + 132)   // legnth MAX_AVAIL_PLAYERS
+#define SDL_EVENT_CHOOSE_PLAYER_SELECT    (SDL_EVENT_USER_DEFINED + 140)   // legnth MAX_AVAIL_PLAYERS
 
 //
 // variables
@@ -670,18 +672,18 @@ static void render_game_mode(pane_cx_t *pane_cx)
 
     // register game mode events
     if (game_state == GAME_STATE_RESET) {
-        register_event(pane_cx, 0, 0, SDL_EVENT_CHOOSE_TOURNAMENT_MODE, "GAME");
+        register_event(pane_cx, 0, 0, SDL_EVENT_SET_TOURNAMENT_MODE, "GAME");
     } else {
         print(pane_cx, 0, 0, "GAME");
     }
 
     if (game_state == GAME_STATE_ACTIVE || game_state == GAME_STATE_COMPLETE) {
-        register_event(pane_cx, 2, 0, SDL_EVENT_GAME_START, "RESTART");
-        register_event(pane_cx, 2, 10, SDL_EVENT_GAME_RESET, "RESET");
+        register_event(pane_cx, 2, 0, SDL_EVENT_START_GAME, "RESTART");
+        register_event(pane_cx, 2, 10, SDL_EVENT_RESET_GAME, "RESET");
     }
 
     if (game_state == GAME_STATE_RESET) {
-        register_event(pane_cx, 2, 0, SDL_EVENT_GAME_START, "START");
+        register_event(pane_cx, 2, 0, SDL_EVENT_START_GAME, "START");
     }
 
     register_event(pane_cx, -1, 0, SDL_EVENT_SHOW_EVAL, "EVAL=%c", CONFIG_SHOW_EVAL_YN);
@@ -712,7 +714,6 @@ static void render_game_mode(pane_cx_t *pane_cx)
             print(pane_cx, 8.5, 0, "%s WINS BY %d", name, b->white_cnt - b->black_cnt);
         }
     } else if (CONFIG_SHOW_EVAL_YN == 'Y' && gm->eval_str[0] != '\0') {
-        // XXX, one player must be human, but not both
         int human_players_cnt = 0;
         if (strcasecmp(player_black->name, "human") == 0) human_players_cnt++;
         if (strcasecmp(player_white->name, "human") == 0) human_players_cnt++;
@@ -729,19 +730,22 @@ static int event_game_mode(pane_cx_t *pane_cx, sdl_event_t *event)
     switch (event->event_id) {
 
     // game mode events
-    case SDL_EVENT_CHOOSE_TOURNAMENT_MODE:
+    case SDL_EVENT_SET_TOURNAMENT_MODE:
         memset(&tournament, 0, sizeof(tournament));
         tournament.enabled = true;
         game_request = GAME_REQUEST_START;
         break;
-    case SDL_EVENT_GAME_START:
+    case SDL_EVENT_START_GAME:
         game_request = GAME_REQUEST_START;
         break;
-    case SDL_EVENT_GAME_RESET:
+    case SDL_EVENT_RESET_GAME:
         game_request = GAME_REQUEST_RESET;
         break;
-    case SDL_EVENT_HUMAN_MOVE_PASS:
-        human_move_select = MOVE_PASS;
+    case SDL_EVENT_CHOOSE_BLACK_PLAYER:
+        choose_player_mode = BLACK;
+        break;
+    case SDL_EVENT_CHOOSE_WHITE_PLAYER:
+        choose_player_mode = WHITE;
         break;
     case SDL_EVENT_SHOW_EVAL:
         CONFIG_SHOW_EVAL_YN = (CONFIG_SHOW_EVAL_YN == 'N' ? 'Y' : 'N');
@@ -750,6 +754,9 @@ static int event_game_mode(pane_cx_t *pane_cx, sdl_event_t *event)
     case SDL_EVENT_SHOW_MOVE:
         CONFIG_SHOW_MOVE_YN = (CONFIG_SHOW_MOVE_YN == 'N' ? 'Y' : 'N');
         config_write();
+        break;
+    case SDL_EVENT_HUMAN_MOVE_PASS:
+        human_move_select = MOVE_PASS;
         break;
     case SDL_EVENT_HUMAN_UNDO:
         INFO("setting request UNDO\n");
@@ -775,15 +782,20 @@ static int event_game_mode(pane_cx_t *pane_cx, sdl_event_t *event)
 
 static void render_game_choose_player_mode(pane_cx_t *pane_cx)
 {
+    int i;
+
     render_board(pane_cx);
 
     register_event(pane_cx, 0, -4, SDL_EVENT_QUIT_PGM, "QUIT");
     register_event(pane_cx, -1, -4, SDL_EVENT_HELP, "HELP");
 
-    // game mode / choose player ...
-
-    // register player selection events
-    // xxx later SDL_EVENT_CHOOSE_PLAYER_SELECT   legnth MAX_AVAIL_PLAYERS
+    for (i = 0; i < MAX_AVAIL_PLAYERS; i++) {
+        register_event(pane_cx, 
+                       2 + (i/2) * 2,        // row
+                       (i%2) * (CTL_COLS/2), // col
+                       SDL_EVENT_CHOOSE_PLAYER_SELECT + i,
+                       avail_players[i]->name);
+    }
 }
 
 static int event_game_choose_player_mode(pane_cx_t *pane_cx, sdl_event_t *event)
@@ -793,15 +805,17 @@ static int event_game_choose_player_mode(pane_cx_t *pane_cx, sdl_event_t *event)
     switch (event->event_id) {
 
     // game mode, choose player events
-    case SDL_EVENT_CHOOSE_BLACK_PLAYER:
-        // xxx later
-        break;
-    case SDL_EVENT_CHOOSE_WHITE_PLAYER:
-        // xxx later
-        break;
-    case SDL_EVENT_CHOOSE_PLAYER_SELECT ... SDL_EVENT_CHOOSE_PLAYER_SELECT+MAX_AVAIL_PLAYERS-1:
-        // xxx later
-        break;
+    case SDL_EVENT_CHOOSE_PLAYER_SELECT ... SDL_EVENT_CHOOSE_PLAYER_SELECT+MAX_AVAIL_PLAYERS-1: {
+        int idx = event->event_id - SDL_EVENT_CHOOSE_PLAYER_SELECT;
+        if (choose_player_mode == BLACK) {
+            sprintf(CONFIG_PLAYER_BLACK_IDX_STR, "%d", idx);
+            config_write();
+        } else if (choose_player_mode == WHITE) {
+            sprintf(CONFIG_PLAYER_WHITE_IDX_STR, "%d", idx);
+            config_write();
+        }
+        choose_player_mode = NONE;
+        break; }
 
     // common events
     case SDL_EVENT_HELP:
@@ -829,7 +843,7 @@ static void render_tournament_mode(pane_cx_t *pane_cx)
     register_event(pane_cx, -1, -4, SDL_EVENT_HELP, "HELP");
 
     // register event to go back to game mode
-    register_event(pane_cx, 0, 0, SDL_EVENT_CHOOSE_GAME_MODE, "TOURNAMENT");
+    register_event(pane_cx, 0, 0, SDL_EVENT_SET_GAME_MODE, "TOURNAMENT");
 
     // display tournament mode status
     print(pane_cx, 1.5, 0, "%5s", player_black->name);
@@ -854,7 +868,7 @@ static int event_tournament_mode(pane_cx_t *pane_cx, sdl_event_t *event)
     switch (event->event_id) {
 
     // tournament mode events
-    case SDL_EVENT_CHOOSE_GAME_MODE:
+    case SDL_EVENT_SET_GAME_MODE:
         tournament.enabled = false;
         game_request = GAME_REQUEST_RESET;
         break;
@@ -944,8 +958,8 @@ static void register_event(pane_cx_t *pane_cx, double r, double c, int event, ch
     }
 
     // get x, y
-    x = (c >= 0 ? CTLX + COL2X(c,FONTSZ) : win_width  + COL2X(c,FONTSZ));
-    y = (r >= 0 ? CTLY + ROW2Y(r,FONTSZ) : win_height + ROW2Y(r,FONTSZ));
+    x = (c >= 0 ? CTL_X + COL2X(c,FONTSZ) : win_width  + COL2X(c,FONTSZ));
+    y = (r >= 0 ? CTL_Y + ROW2Y(r,FONTSZ) : win_height + ROW2Y(r,FONTSZ));
 
     // make str
     va_start(ap,fmt);
@@ -966,8 +980,8 @@ static void print(pane_cx_t *pane_cx, double r, double c, char *fmt, ...)
     rect_t * pane = &pane_cx->pane;
 
     // get x, y
-    x = (c >= 0 ? CTLX + COL2X(c,FONTSZ) : win_width  + COL2X(c,FONTSZ));
-    y = (r >= 0 ? CTLY + ROW2Y(r,FONTSZ) : win_height + ROW2Y(r,FONTSZ));
+    x = (c >= 0 ? CTL_X + COL2X(c,FONTSZ) : win_width  + COL2X(c,FONTSZ));
+    y = (r >= 0 ? CTL_Y + ROW2Y(r,FONTSZ) : win_height + ROW2Y(r,FONTSZ));
 
     // make str
     va_start(ap,fmt);
