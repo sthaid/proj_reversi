@@ -1,7 +1,5 @@
-// XXX indicate player's color
 // XXX use different window sizzes
-// XXX emphasize GAME OVER
-
+// XXX longjmp
 // XXX comments and total review
 
 #include <common.h>
@@ -516,10 +514,14 @@ bool move_cancelled(void)
 // variables
 //
 
-static texture_t white_circle;
 static texture_t black_circle;
-static texture_t small_white_circle;
+static texture_t white_circle;
+
 static texture_t small_black_circle;
+static texture_t small_white_circle;
+
+static texture_t piece_black_circle;
+static texture_t piece_white_circle;
 
 static bool help_mode;   // xxx all need to be initialized, I think - check this
 static int  choose_player_mode;
@@ -556,11 +558,14 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     if (request == PANE_HANDLER_REQ_INITIALIZE) {
         INFO("PANE x,y,w,h  %d %d %d %d\n", pane->x, pane->y, pane->w, pane->h);
 
-        white_circle = sdl_create_filled_circle_texture(50, WHITE);
         black_circle = sdl_create_filled_circle_texture(50, BLACK);
+        white_circle = sdl_create_filled_circle_texture(50, WHITE);
 
-        small_white_circle = sdl_create_filled_circle_texture(10, WHITE);
         small_black_circle = sdl_create_filled_circle_texture(10, BLACK);
+        small_white_circle = sdl_create_filled_circle_texture(10, WHITE);
+
+        piece_black_circle = sdl_create_filled_circle_texture(25, BLACK);
+        piece_white_circle = sdl_create_filled_circle_texture(25, WHITE);
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
@@ -691,28 +696,36 @@ static void render_game_mode(pane_cx_t *pane_cx)
     register_event(pane_cx, -1, 8, SDL_EVENT_SHOW_MOVE, "MOVE=%c", CONFIG_SHOW_MOVE_YN);
 
     // display game status
+    rect_t loc_black = { CTL_X, CTL_Y + ROW2Y(4,FONTSZ), 70, 70 };
+    sdl_render_fill_rect(pane, &loc_black, GREEN);
+    sdl_render_texture(pane, loc_black.x+10, loc_black.y+10, piece_black_circle);
+
+    rect_t loc_white = { CTL_X, CTL_Y + ROW2Y(5.5,FONTSZ), 70, 70 };
+    sdl_render_fill_rect(pane, &loc_white, GREEN);
+    sdl_render_texture(pane, loc_white.x+10, loc_white.y+10, piece_white_circle);
+
     if (game_state == GAME_STATE_RESET) {
-        register_event(pane_cx, 4, 0, SDL_EVENT_CHOOSE_BLACK_PLAYER, "%s", player_black->name);
-        register_event(pane_cx, 5.5, 0, SDL_EVENT_CHOOSE_WHITE_PLAYER, "%s", player_white->name);
+        register_event(pane_cx, 4, 2, SDL_EVENT_CHOOSE_BLACK_PLAYER, " %s", player_black->name);
+        register_event(pane_cx, 5.5, 2, SDL_EVENT_CHOOSE_WHITE_PLAYER, " %s", player_white->name);
     } else {
         board_t *b = &game_moves[max_game_moves-1].board;
         int whose_turn = ((game_state != GAME_STATE_ACTIVE) ? NONE  :
                           (max_game_moves & 1)              ? BLACK : 
                                                               WHITE);
-        print(pane_cx, 4, 0, "%-5s %2d %s", 
-              player_black->name, 
-              b->black_cnt,
-              whose_turn == BLACK ? "MOVE" : "");
-        print(pane_cx, 5.5, 0, "%-5s %2d %s", 
-              player_white->name, 
-              b->white_cnt,
-              whose_turn == WHITE ? "MOVE" : "");
+        print(pane_cx, 4, 2, "%c%-5s %2d", 
+              whose_turn == BLACK ? '*' : ' ',
+              player_black->name,
+              b->black_cnt);
+        print(pane_cx, 5.5, 2, "%c%-5s %2d", 
+              whose_turn == WHITE ? '*' : ' ',
+              player_white->name,
+              b->white_cnt);
     }
 
     // display game completion or cpu evaluation status
     if (game_state == GAME_STATE_COMPLETE) {
         board_t *b = &gm->board;
-        print(pane_cx, 7, 0, "GAME OVER");
+        print(pane_cx, 7, 0, "** GAME OVER **");
         if (b->black_cnt == b->white_cnt) {
             print(pane_cx, 8.5, 0, "TIE");
         } else if (b->black_cnt > b->white_cnt) {
