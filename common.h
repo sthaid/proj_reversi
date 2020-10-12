@@ -23,6 +23,7 @@
 // defines
 //
 
+// xxx comment for why 10 and 9
 #define NONE   0
 #define BLACK  10
 #define WHITE  9

@@ -1,7 +1,7 @@
-// XXX longjmp
 // XXX comments and total review
 // XXX android version
-// XXX android pgms don't have QUIT,  move HELP to QUIT
+//     - init code
+// XXX help mode
 
 #include <common.h>
 
@@ -12,10 +12,10 @@
 // defines
 //
 
-//#define DEFAULT_WIN_WIDTH    1500
-//#define DEFAULT_WIN_HEIGHT    800
-#define DEFAULT_WIN_WIDTH    1920
-#define DEFAULT_WIN_HEIGHT   1000
+#define DEFAULT_WIN_WIDTH    1500
+#define DEFAULT_WIN_HEIGHT    800
+//#define DEFAULT_WIN_WIDTH    1920  //xxx
+//#define DEFAULT_WIN_HEIGHT   1000
 
 #define MAX_AVAIL_PLAYERS         (sizeof(avail_players) / sizeof(avail_players[0]))
 #define MAX_TOURNAMENT_PLAYERS    (sizeof(tournament_players) / sizeof(tournament_players[0]))
@@ -29,7 +29,6 @@
 #define GAME_REQUEST_START       2
 #define GAME_REQUEST_UNDO        3
 
-// xxx adjustable ?
 #define FONTSZ  70
 
 #define CONFIG_FILENAME ".reversi_config"
@@ -49,8 +48,8 @@ typedef struct {
     int     pb_idx;
     int     pw_idx;
     int     total_games_played;
-    int     games_played[20];   //xxx
-    double  games_won[20];
+    int     games_played[100];
+    double  games_won[100];
 } tournament_t;
 
 typedef struct {
@@ -63,7 +62,6 @@ typedef struct {
 
 //
 // variables
-// xxx may need to re-init all of these for android
 // xxx make some of these const
 //
 
@@ -115,8 +113,7 @@ int main(int argc, char **argv)
     // initialize
     initialize();
 
-    // xxx -g
-    // xxx window resizing?
+    // xxx -g on linux
 
     // init sdl
     // xxx use full screen for android,  use default or -g wxh for linux
@@ -144,7 +141,7 @@ int main(int argc, char **argv)
 
 // -----------------  INITIALIZE  -------------------------------------------------
 
-// xxx maybe put this in main
+// XXX maybe put this in main
 static void initialize(void)
 {
     pthread_t tid;
@@ -419,7 +416,7 @@ void  apply_move(board_t *b, int my_color, int move, unsigned char highlight[][1
 
     if (highlight) {
         sleep(1);
-        memset(highlight, 0, 100);  // xxx 100?
+        memset(highlight, 0, 100);  // xxx 100?  use sizeof
     }
 
     if (!succ) {
@@ -525,8 +522,8 @@ static int       status_circle_radius;
 static texture_t status_black_circle;
 static texture_t status_white_circle;
 
-static bool help_mode;   // xxx all need to be initialized, I think - check this
-static int  choose_player_mode;
+static bool      help_mode;
+static int       choose_player_mode;
 
 //
 // prototypes
@@ -546,7 +543,7 @@ static void register_event(pane_cx_t *pane_cx, double r, double c, int event, ch
                 __attribute__ ((format (printf, 5, 6)));
 static void print(pane_cx_t *pane_cx, double r, double c, char *fmt, ...)
                 __attribute__ ((format (printf, 4, 5)));
-rect_t *rc_to_loc(int r_arg, int c_arg);
+static rect_t *rc_to_loc(int r_arg, int c_arg);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -587,7 +584,7 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
             render_help_mode(pane_cx);
         } else if (tournament.enabled) {
             render_tournament_mode(pane_cx);
-        } else if (choose_player_mode != 0) { //xxx define for 0
+        } else if (choose_player_mode != NONE) {
             render_game_choose_player_mode(pane_cx);
         } else {
             render_game_mode(pane_cx);
@@ -607,7 +604,7 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
             rc = event_help_mode(pane_cx, event);
         } else if (tournament.enabled) {
             rc = event_tournament_mode(pane_cx, event);
-        } else if (choose_player_mode != 0) { //xxx define for 0
+        } else if (choose_player_mode != NONE) {
             rc = event_game_choose_player_mode(pane_cx, event);
         } else {
             rc = event_game_mode(pane_cx, event);
@@ -625,7 +622,7 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     }
 
     // not reached
-    assert(0);
+    assert(0);  // xxx the only assert
     return PANE_HANDLER_RET_NO_ACTION;
 }
 
@@ -1006,7 +1003,7 @@ static void print(pane_cx_t *pane_cx, double r, double c, char *fmt, ...)
     sdl_render_text( pane, x, y, FONTSZ, str, WHITE, BLACK);
 }
 
-rect_t *rc_to_loc(int r_arg, int c_arg)
+static rect_t *rc_to_loc(int r_arg, int c_arg)
 {
     static rect_t loc[10][10];
     static bool first_call = true;
