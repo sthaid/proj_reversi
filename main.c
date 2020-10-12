@@ -14,8 +14,6 @@
 
 #define DEFAULT_WIN_WIDTH    1500
 #define DEFAULT_WIN_HEIGHT    800
-//#define DEFAULT_WIN_WIDTH    1920  //xxx
-//#define DEFAULT_WIN_HEIGHT   1000
 
 #define MAX_AVAIL_PLAYERS         (sizeof(avail_players) / sizeof(avail_players[0]))
 #define MAX_TOURNAMENT_PLAYERS    (sizeof(tournament_players) / sizeof(tournament_players[0]))
@@ -68,7 +66,7 @@ typedef struct {
 static int                 win_width  = DEFAULT_WIN_WIDTH;
 static int                 win_height = DEFAULT_WIN_HEIGHT;
 
-static int                 game_state = GAME_STATE_RESET;
+static int                 game_state   = GAME_STATE_RESET;
 static int                 game_request = GAME_REQUEST_NONE;
 
 static game_moves_t        game_moves[150];
@@ -93,8 +91,6 @@ config_t                   config[] = { { "player_black_idx",   "0" },
 // prototypes
 //
 
-static void initialize(void);
-
 static void *game_thread(void *cx);
 
 static void game_mode_get_players(player_t **pb, player_t **pw);
@@ -107,24 +103,48 @@ static int pane_hndlr(pane_cx_t *pane_cx, int request, void * init_params, sdl_e
 
 int main(int argc, char **argv)
 {
-    int requested_win_width;
-    int requested_win_height;
+    bool fullscreen = false;
+    char opt_char;
+    pthread_t tid;
 
-    // initialize
-    initialize();
+    // get options
+    // -f         - fullscreen
+    // -g wwwxhhh - xxx maybe later
+    while (true) {
+        opt_char = getopt(argc, argv, "f");
+        if (opt_char == -1) {
+            break;
+        }
+        switch (opt_char) {
+        case 'f':
+            fullscreen = true;
+            break;
+        default:
+            FATAL("invalid opt_char '%c'\n", opt_char);
+            return 1;
+        }
+    }
 
-    // xxx -g on linux
+    // read configuration file, and print values
+    if (config_read(CONFIG_FILENAME, config, CONFIG_VERSION) < 0) {
+        FATAL("config_read failed\n");
+    }
+    INFO("CONFIG_PLAYER_BLACK_IDX_STR = %s\n", CONFIG_PLAYER_BLACK_IDX_STR);
+    INFO("CONFIG_PLAYER_WHITE_IDX_STR = %s\n", CONFIG_PLAYER_WHITE_IDX_STR);
+    INFO("CONFIG_SHOW_MOVE_YN         = %c\n", CONFIG_SHOW_MOVE_YN);
+    INFO("CONFIG_SHOW_EVAL_YN         = %c\n", CONFIG_SHOW_EVAL_YN);
+
+    // create game_thread, and
+    // wait for player_black and player_white to be initialized by the game_thread
+    pthread_create(&tid, NULL, game_thread, NULL);
+    while (player_black == NULL || player_white == NULL) {
+        usleep(10*MS);
+    }
 
     // init sdl
-    // xxx use full screen for android,  use default or -g wxh for linux
-    requested_win_width  = win_width;
-    requested_win_height = win_height;
-    if (sdl_init(&win_width, &win_height, false, false) < 0) {
+    if (sdl_init(&win_width, &win_height, fullscreen, false, false) < 0) {
         FATAL("sdl_init %dx%d failed\n", win_width, win_height);
     }
-    INFO("requested win_width=%d win_height=%d\n", requested_win_width, requested_win_height);
-    INFO("actual    win_width=%d win_height=%d\n", win_width, win_height);
-    // xxx must be requested  - NOT LATER
 
     // run the pane manger, this is the runtime loop
     sdl_pane_manager(
@@ -137,32 +157,6 @@ int main(int argc, char **argv)
 
     // done
     return 0;
-}
-
-// -----------------  INITIALIZE  -------------------------------------------------
-
-// XXX maybe put this in main
-static void initialize(void)
-{
-    pthread_t tid;
-
-    // read config
-    if (config_read(CONFIG_FILENAME, config, CONFIG_VERSION) < 0) {
-        FATAL("config_read failed\n");
-    }
-
-    INFO("CONFIG_PLAYER_BLACK_IDX_STR = %s\n", CONFIG_PLAYER_BLACK_IDX_STR);
-    INFO("CONFIG_PLAYER_WHITE_IDX_STR = %s\n", CONFIG_PLAYER_WHITE_IDX_STR);
-    INFO("CONFIG_SHOW_MOVE_YN         = %c\n", CONFIG_SHOW_MOVE_YN);
-    INFO("CONFIG_SHOW_EVAL_YN         = %c\n", CONFIG_SHOW_EVAL_YN);
-
-    // create game_thread
-    pthread_create(&tid, NULL, game_thread, NULL);
-
-    // wait for player_black and player_white to be initialized by the game_thread
-    while (!player_black || !player_white) {
-        usleep(10*MS);
-    }
 }
 
 // -----------------  GAME THREAD  ------------------------------------------------
@@ -622,7 +616,7 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     }
 
     // not reached
-    assert(0);  // xxx the only assert
+    FATAL("not reached\n");
     return PANE_HANDLER_RET_NO_ACTION;
 }
 

@@ -131,14 +131,11 @@ static inline uint32_t _bswap32(uint32_t a)
 
 // -----------------  SDL INIT & MISC ROUTINES  ------------------------- 
 
-int32_t sdl_init(int32_t *w, int32_t *h, bool resizeable, bool swap_white_black)
+int32_t sdl_init(int32_t *w, int32_t *h, bool fullscreen, bool resizeable, bool swap_white_black)
 {
-    #define SDL_FLAGS (resizeable ? SDL_WINDOW_RESIZABLE : 0)
-    #define MAX_FONT_SEARCH_PATH 3
+    #define MAX_FONT_SEARCH_PATH 2
 
     static char font_search_path[MAX_FONT_SEARCH_PATH][PATH_MAX];
-
-    static const char * font_filename = "FreeMonoBold.ttf";
 
     // display available and current video drivers
     int num, i;
@@ -155,12 +152,24 @@ int32_t sdl_init(int32_t *w, int32_t *h, bool resizeable, bool swap_white_black)
     }
 
     // create SDL Window and Renderer
-    sdl_win_width = *w;
-    sdl_win_height = *h;
+#ifndef ANDROID
+    #define SDL_FLAGS ((resizeable ? SDL_WINDOW_RESIZABLE : 0) | \
+                       (fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0))
+    sdl_win_width  = (!fullscreen ? *w : 0);
+    sdl_win_height = (!fullscreen ? *h : 0);
     if (SDL_CreateWindowAndRenderer(*w, *h, SDL_FLAGS, &sdl_window, &sdl_renderer) != 0) {
         ERROR("SDL_CreateWindowAndRenderer failed\n");
         return -1;
     }
+#else
+    #define SDL_FLAGS (SDL_WINDOW_FULLSCREEN_DESKTOP)
+    sdl_win_width  = 0;
+    sdl_win_height = 0;
+    if (SDL_CreateWindowAndRenderer(*w, *h, SDL_FLAGS, &sdl_window, &sdl_renderer) != 0) {
+        ERROR("SDL_CreateWindowAndRenderer failed\n");
+        return -1;
+    }
+#endif
 
     // the size of the created window may be different than what was requested
     // - call sdl_poll_event to flush all of the initial events,
@@ -168,7 +177,7 @@ int32_t sdl_init(int32_t *w, int32_t *h, bool resizeable, bool swap_white_black)
     //   which may update sdl_win_width and sdl_win_height
     // - return the updated window width & height to caller
     sdl_poll_event();
-    DEBUG("sdl_win_width=%d sdl_win_height=%d\n", sdl_win_width, sdl_win_height);
+    INFO("sdl_win_width=%d sdl_win_height=%d\n", sdl_win_width, sdl_win_height);
     *w = sdl_win_width;
     *h = sdl_win_height;
 
@@ -196,9 +205,13 @@ int32_t sdl_init(int32_t *w, int32_t *h, bool resizeable, bool swap_white_black)
     // note - fonts can be installed using:
     //   sudo yum install gnu-free-mono-fonts       # rhel,centos,fedora
     //   sudo apt-get install fonts-freefont-ttf    # raspberrypi, ubuntu
-    sprintf(font_search_path[0], "%s/%s", "/usr/share/fonts/gnu-free", font_filename);
-    sprintf(font_search_path[1], "%s/%s", "/usr/share/fonts/truetype/freefont", font_filename);
-    sprintf(font_search_path[2], "%s/%s/%s", getenv("HOME"), "my_fonts", font_filename);
+#ifndef ANDROID
+    sprintf(font_search_path[0], "%s", "/usr/share/fonts/gnu-free/FreeMonoBold.ttf");
+    sprintf(font_search_path[1], "%s", "/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf");
+#else
+    sprintf(font_search_path[0], "%s", "/system/fonts/DroidSansMono.ttf");
+    sprintf(font_search_path[1], "%s", "no_font_path_2");
+#endif
     for (i = 0; i < MAX_FONT_SEARCH_PATH; i++) {
         struct stat buf;
         sdl_font_path = font_search_path[i];

@@ -14,7 +14,6 @@
 #include <math.h>
 #include <pthread.h>
 #include <errno.h>
-#include <assert.h>
 
 #define DEBUG_PRINT_ENABLED (debug_enabled)
 #include <util_misc.h>
