@@ -11,6 +11,7 @@
 #include <libgen.h>
 #include <string.h>
 #include <limits.h>
+#include <math.h>
 #include <pthread.h>
 #include <errno.h>
 #include <assert.h>

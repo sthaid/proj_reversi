@@ -11,8 +11,10 @@
 // defines
 //
 
-#define DEFAULT_WIN_WIDTH    1920
-#define DEFAULT_WIN_HEIGHT   1002   // xxx 125 * 8  + 2
+//#define DEFAULT_WIN_WIDTH    1920
+//#define DEFAULT_WIN_HEIGHT   1002   // xxx 125 * 8  + 2
+#define DEFAULT_WIN_WIDTH    1650
+#define DEFAULT_WIN_HEIGHT    800
 
 #define MAX_AVAIL_PLAYERS         (sizeof(avail_players) / sizeof(avail_players[0]))
 #define MAX_TOURNAMENT_PLAYERS    (sizeof(tournament_players) / sizeof(tournament_players[0]))
@@ -26,7 +28,9 @@
 #define GAME_REQUEST_START       2
 #define GAME_REQUEST_UNDO        3
 
-#define FONTSZ  70   // xxx use 50 for linux later
+// xxx use 50 for linux later
+// xxx adjustable
+#define FONTSZ  70
 
 #define CONFIG_FILENAME ".reversi_config"
 #define CONFIG_VERSION  1
@@ -79,7 +83,7 @@ static player_t           *avail_players[] =
 
 static tournament_t        tournament;
 static player_t           *tournament_players[] = 
-                            { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, };
+                            { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, &CPU6, };
 
 config_t                   config[] = { { "player_black_idx",   "0" },
                                         { "player_white_idx",   "5" },
@@ -110,6 +114,9 @@ int main(int argc, char **argv)
 
     // initialize
     initialize();
+
+    // xxx -g
+    // xxx window resizing?
 
     // init sdl
     // xxx use full screen for android,  use default or -g wxh for linux
@@ -469,17 +476,9 @@ bool move_cancelled(void)
 // defines
 //
 
-#define CTL_X    1015  // xxx needs equation
+#define CTL_X    (win_height + 10)
 #define CTL_Y    0
 #define CTL_COLS ((win_width - CTL_X) / sdl_font_char_width(FONTSZ))
-
-#define RC_TO_LOC(r,c,loc) \
-    do { \
-        (loc).x = 2 + ((c) - 1) * 125; \
-        (loc).y = 2 + ((r) - 1) * 125; \
-        (loc).w = 123; \
-        (loc).h = 123; \
-    } while (0)
 
 //
 // define events
@@ -514,14 +513,17 @@ bool move_cancelled(void)
 // variables
 //
 
-static texture_t black_circle;
-static texture_t white_circle;
-
-static texture_t small_black_circle;
-static texture_t small_white_circle;
-
+static int       piece_circle_radius;
 static texture_t piece_black_circle;
 static texture_t piece_white_circle;
+
+static int       prompt_circle_radius;
+static texture_t prompt_black_circle;
+static texture_t prompt_white_circle;
+
+static int       status_circle_radius;
+static texture_t status_black_circle;
+static texture_t status_white_circle;
 
 static bool help_mode;   // xxx all need to be initialized, I think - check this
 static int  choose_player_mode;
@@ -544,6 +546,7 @@ static void register_event(pane_cx_t *pane_cx, double r, double c, int event, ch
                 __attribute__ ((format (printf, 5, 6)));
 static void print(pane_cx_t *pane_cx, double r, double c, char *fmt, ...)
                 __attribute__ ((format (printf, 4, 5)));
+rect_t *rc_to_loc(int r_arg, int c_arg);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -556,16 +559,21 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     // ----------------------------
 
     if (request == PANE_HANDLER_REQ_INITIALIZE) {
+        double sq_wh = (win_height - 2) / 8. - 2;
+
         INFO("PANE x,y,w,h  %d %d %d %d\n", pane->x, pane->y, pane->w, pane->h);
 
-        black_circle = sdl_create_filled_circle_texture(50, BLACK);
-        white_circle = sdl_create_filled_circle_texture(50, WHITE);
+        piece_circle_radius  = rint(.4*sq_wh);
+        piece_black_circle   = sdl_create_filled_circle_texture(piece_circle_radius, BLACK);
+        piece_white_circle   = sdl_create_filled_circle_texture(piece_circle_radius, WHITE);
 
-        small_black_circle = sdl_create_filled_circle_texture(10, BLACK);
-        small_white_circle = sdl_create_filled_circle_texture(10, WHITE);
+        prompt_circle_radius = rint(.08*sq_wh);
+        prompt_black_circle  = sdl_create_filled_circle_texture(prompt_circle_radius, BLACK);
+        prompt_white_circle  = sdl_create_filled_circle_texture(prompt_circle_radius, WHITE);
 
-        piece_black_circle = sdl_create_filled_circle_texture(25, BLACK);
-        piece_white_circle = sdl_create_filled_circle_texture(25, WHITE);
+        status_circle_radius = rint(.36*FONTSZ);
+        status_black_circle  = sdl_create_filled_circle_texture(status_circle_radius, BLACK);
+        status_white_circle  = sdl_create_filled_circle_texture(status_circle_radius, WHITE);
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
@@ -628,7 +636,6 @@ static void render_game_mode(pane_cx_t *pane_cx)
     rect_t *pane = &pane_cx->pane;
 
     int r, c, i, move;
-    rect_t loc;
     game_moves_t *gm = &game_moves[max_game_moves-1];
 
     // game mode ...
@@ -646,19 +653,22 @@ static void render_game_mode(pane_cx_t *pane_cx)
 
         // display the human player's possilbe moves as small circles
         for (i = 0; i < pm->max; i++) {
+            rect_t loc;
+            int offset;
+
             MOVE_TO_RC(pm->move[i], r, c);
-            RC_TO_LOC(r,c,loc);
+            loc = *rc_to_loc(r,c);
+            offset = loc.w/2 - prompt_circle_radius;
             sdl_render_texture(
-                pane, loc.x+52, loc.y+52, 
-                (pm->color == BLACK ? small_black_circle : small_white_circle));
+                pane, loc.x+offset, loc.y+offset, 
+                (pm->color == BLACK ? prompt_black_circle : prompt_white_circle));
         }
 
         // register mouse click events for every square
         for (r = 1; r <= 8; r++) {
             for (c = 1; c <= 8; c++) {
                 RC_TO_MOVE(r,c,move);
-                RC_TO_LOC(r,c,loc);
-                sdl_register_event(pane, &loc, 
+                sdl_register_event(pane, rc_to_loc(r,c),
                                    SDL_EVENT_HUMAN_MOVE_SELECT + move,
                                    SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
             }
@@ -696,13 +706,14 @@ static void render_game_mode(pane_cx_t *pane_cx)
     register_event(pane_cx, -1, 8, SDL_EVENT_SHOW_MOVE, "MOVE=%c", CONFIG_SHOW_MOVE_YN);
 
     // display game status
-    rect_t loc_black = { CTL_X, CTL_Y + ROW2Y(4,FONTSZ), 70, 70 };
+    int offset = FONTSZ/2 - status_circle_radius;
+    rect_t loc_black = { CTL_X, CTL_Y + ROW2Y(4,FONTSZ), FONTSZ, FONTSZ };
     sdl_render_fill_rect(pane, &loc_black, GREEN);
-    sdl_render_texture(pane, loc_black.x+10, loc_black.y+10, piece_black_circle);
+    sdl_render_texture(pane, loc_black.x+offset, loc_black.y+offset, status_black_circle);
 
-    rect_t loc_white = { CTL_X, CTL_Y + ROW2Y(5.5,FONTSZ), 70, 70 };
+    rect_t loc_white = { CTL_X, CTL_Y + ROW2Y(5.5,FONTSZ), FONTSZ, FONTSZ };
     sdl_render_fill_rect(pane, &loc_white, GREEN);
-    sdl_render_texture(pane, loc_white.x+10, loc_white.y+10, piece_white_circle);
+    sdl_render_texture(pane, loc_white.x+offset, loc_white.y+offset, status_white_circle);
 
     if (game_state == GAME_STATE_RESET) {
         register_event(pane_cx, 4, 2, SDL_EVENT_CHOOSE_BLACK_PLAYER, " %s", player_black->name);
@@ -810,12 +821,9 @@ static void render_game_choose_player_mode(pane_cx_t *pane_cx)
 
     render_board(pane_cx);
 
-    register_event(pane_cx, 0, -4, SDL_EVENT_QUIT_PGM, "QUIT");
-    register_event(pane_cx, -1, -4, SDL_EVENT_HELP, "HELP");
-
     for (i = 0; i < MAX_AVAIL_PLAYERS; i++) {
         register_event(pane_cx, 
-                       2 + (i/2) * 2,        // row
+                       (i/2) * 2,            // row
                        (i%2) * (CTL_COLS/2), // col
                        SDL_EVENT_CHOOSE_PLAYER_SELECT + i,
                        avail_players[i]->name);
@@ -840,14 +848,6 @@ static int event_game_choose_player_mode(pane_cx_t *pane_cx, sdl_event_t *event)
         }
         choose_player_mode = NONE;
         break; }
-
-    // common events
-    case SDL_EVENT_HELP:
-        help_mode = true;
-        break;
-    case SDL_EVENT_QUIT_PGM:
-        rc = PANE_HANDLER_RET_PANE_TERMINATE;
-        break;
     }
 
     return rc;
@@ -870,12 +870,11 @@ static void render_tournament_mode(pane_cx_t *pane_cx)
     register_event(pane_cx, 0, 0, SDL_EVENT_SET_GAME_MODE, "TOURNAMENT");
 
     // display tournament mode status
-    print(pane_cx, 1.5, 0, "%5s", player_black->name);
-    print(pane_cx, 2.5, 0, "%5s", player_white->name);
+    print(pane_cx, 1.5, 0, "%5s vs %s", player_black->name, player_white->name);
 
     // xxx comment
     for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
-        print(pane_cx, 4+i, 0, 
+        print(pane_cx, 3+i, 0, 
                   "%5s : %3.0f %%",
                   tournament_players[i]->name,
                   100. * tournament.games_won[i] / tournament.games_played[i]);
@@ -943,27 +942,26 @@ static void render_board(pane_cx_t *pane_cx)
     rect_t *pane = &pane_cx->pane;
     game_moves_t *gm = &game_moves[max_game_moves-1];
     int r, c, color;
-    rect_t loc;
 
     // draw the 64 playing squares
     for (r = 1; r <= 8; r++) {
         for (c = 1; c <= 8; c++) {
-            RC_TO_LOC(r,c,loc);
             color = (gm->highlight[r][c] == 0 ? GREEN : 
                      gm->highlight[r][c] == 1 ? LIGHT_BLUE : 
                                                 BLUE);
-            sdl_render_fill_rect(pane, &loc, color);
+            sdl_render_fill_rect(pane, rc_to_loc(r,c), color);
         }
     }
 
     // draw the black and white pieces 
     for (r = 1; r <= 8; r++) {
         for (c = 1; c <= 8; c++) {
-            RC_TO_LOC(r,c,loc);
+            rect_t loc = *rc_to_loc(r,c);
+            int offset = loc.w/2 - piece_circle_radius;
             if (gm->board.pos[r][c] == BLACK) {
-                sdl_render_texture(pane, loc.x+12, loc.y+12, black_circle);
+                sdl_render_texture(pane, loc.x+offset, loc.y+offset, piece_black_circle);
             } else if (gm->board.pos[r][c] == WHITE) {
-                sdl_render_texture(pane, loc.x+12, loc.y+12, white_circle);
+                sdl_render_texture(pane, loc.x+offset, loc.y+offset, piece_white_circle);
             }
         }
     }
@@ -1014,4 +1012,37 @@ static void print(pane_cx_t *pane_cx, double r, double c, char *fmt, ...)
 
     // register event
     sdl_render_text( pane, x, y, FONTSZ, str, WHITE, BLACK);
+}
+
+rect_t *rc_to_loc(int r_arg, int c_arg)
+{
+    static rect_t loc[10][10];
+    static bool first_call = true;
+
+    if (first_call) {
+        int r, c, i, sq_beg[8], sq_end[8];
+        double tmp;
+
+        tmp = (win_height - 2) / 8.;
+        for (i = 0; i < 8; i++) {
+            sq_beg[i] = rint(2 + i * tmp);
+        }
+        for (i = 0; i < 7; i++) {
+            sq_end[i] = sq_beg[i+1] - 3;
+        }
+        sq_end[7] = win_height - 3;
+
+        for (r = 1; r <= 8; r++) {
+            for (c = 1; c <= 8; c++) {
+                loc[r][c].x = sq_beg[c-1];
+                loc[r][c].y = sq_beg[r-1];
+                loc[r][c].w = sq_end[c-1] - sq_beg[c-1] + 1;
+                loc[r][c].h = sq_end[r-1] - sq_beg[r-1] + 1;
+            }
+        }
+
+        first_call = false;
+    }
+
+    return &loc[r_arg][c_arg];
 }
