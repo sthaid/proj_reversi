@@ -1,6 +1,7 @@
-// XXX use different window sizzes
 // XXX longjmp
 // XXX comments and total review
+// XXX android version
+// XXX android pgms don't have QUIT,  move HELP to QUIT
 
 #include <common.h>
 
@@ -11,10 +12,10 @@
 // defines
 //
 
-//#define DEFAULT_WIN_WIDTH    1920
-//#define DEFAULT_WIN_HEIGHT   1002   // xxx 125 * 8  + 2
-#define DEFAULT_WIN_WIDTH    1650
-#define DEFAULT_WIN_HEIGHT    800
+//#define DEFAULT_WIN_WIDTH    1500
+//#define DEFAULT_WIN_HEIGHT    800
+#define DEFAULT_WIN_WIDTH    1920
+#define DEFAULT_WIN_HEIGHT   1000
 
 #define MAX_AVAIL_PLAYERS         (sizeof(avail_players) / sizeof(avail_players[0]))
 #define MAX_TOURNAMENT_PLAYERS    (sizeof(tournament_players) / sizeof(tournament_players[0]))
@@ -28,8 +29,7 @@
 #define GAME_REQUEST_START       2
 #define GAME_REQUEST_UNDO        3
 
-// xxx use 50 for linux later
-// xxx adjustable
+// xxx adjustable ?
 #define FONTSZ  70
 
 #define CONFIG_FILENAME ".reversi_config"
@@ -56,7 +56,7 @@ typedef struct {
 typedef struct {
     board_t          board;
     possible_moves_t possible_moves;
-    bool             player_is_human;  // xxx eliminate this
+    bool             player_is_human;
     char             eval_str[100];
     unsigned char    highlight[10][10];
 } game_moves_t;
@@ -238,7 +238,8 @@ again:
         // get move by calling player->get_move; 
         // this may also set game_moves field:
         // - eval_str - xxx when is this set, and how used
-        move = player->get_move(&game_moves[max_game_moves-1].board, whose_turn, 
+        move = player->get_move(&game_moves[max_game_moves-1].board, 
+                                whose_turn, 
                                 game_moves[max_game_moves-1].eval_str);
 
         // xxx
@@ -486,7 +487,6 @@ bool move_cancelled(void)
 
 // events common to multiple modes
 #define SDL_EVENT_HELP                    (SDL_EVENT_USER_DEFINED + 0)
-#define SDL_EVENT_QUIT_PGM                (SDL_EVENT_USER_DEFINED + 1)
 
 // help mode events
 #define SDL_EVENT_EXIT_HELP               (SDL_EVENT_USER_DEFINED + 5)
@@ -644,8 +644,7 @@ static void render_game_mode(pane_cx_t *pane_cx)
     render_board(pane_cx);
 
     // register common events
-    register_event(pane_cx, 0, -4, SDL_EVENT_QUIT_PGM, "QUIT");
-    register_event(pane_cx, -1, -4, SDL_EVENT_HELP, "HELP");
+    register_event(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
 
     // if it is a human player's turn then
     if (game_state == GAME_STATE_ACTIVE && gm->player_is_human) {
@@ -703,7 +702,7 @@ static void render_game_mode(pane_cx_t *pane_cx)
     }
 
     register_event(pane_cx, -1, 0, SDL_EVENT_SHOW_EVAL, "EVAL=%c", CONFIG_SHOW_EVAL_YN);
-    register_event(pane_cx, -1, 8, SDL_EVENT_SHOW_MOVE, "MOVE=%c", CONFIG_SHOW_MOVE_YN);
+    register_event(pane_cx, -1, 10, SDL_EVENT_SHOW_MOVE, "MOVE=%c", CONFIG_SHOW_MOVE_YN);
 
     // display game status
     int offset = FONTSZ/2 - status_circle_radius;
@@ -805,9 +804,6 @@ static int event_game_mode(pane_cx_t *pane_cx, sdl_event_t *event)
     case SDL_EVENT_HELP:
         help_mode = true;
         break;
-    case SDL_EVENT_QUIT_PGM:
-        rc = PANE_HANDLER_RET_PANE_TERMINATE;
-        break;
     }
 
     return rc;
@@ -863,8 +859,7 @@ static void render_tournament_mode(pane_cx_t *pane_cx)
     render_board(pane_cx);
 
     // xxx comment
-    register_event(pane_cx, 0, -4, SDL_EVENT_QUIT_PGM, "QUIT");
-    register_event(pane_cx, -1, -4, SDL_EVENT_HELP, "HELP");
+    register_event(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
 
     // register event to go back to game mode
     register_event(pane_cx, 0, 0, SDL_EVENT_SET_GAME_MODE, "TOURNAMENT");
@@ -899,9 +894,6 @@ static int event_tournament_mode(pane_cx_t *pane_cx, sdl_event_t *event)
     // common events
     case SDL_EVENT_HELP:
         help_mode = true;
-        break;
-    case SDL_EVENT_QUIT_PGM:
-        rc = PANE_HANDLER_RET_PANE_TERMINATE;
         break;
     }
 

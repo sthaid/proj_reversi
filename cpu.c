@@ -33,7 +33,6 @@ static int name##_get_move(board_t *b, int my_color, char *eval_str) \
     static_eval = static_eval_##seid; \
     eval_int = eval(b, my_color, 0, &move); \
     create_eval_str(eval_int, eval_str); \
-    if (move == MOVE_NONE) FATAL("invalid move\n"); \
     return move; \
 } \
 player_t name = {#name, name##_get_move};
@@ -81,6 +80,13 @@ static int eval(board_t *b, int my_color, int recursion_depth, int *ret_move)
     // set ret_move to point to dummy variable
     if (ret_move == NULL) {
         ret_move = &dummy_ret_move;
+    }
+
+    // if move is cancelled then just return, this 
+    // happens when the game is being reset or restarted
+    if (move_cancelled()) {
+        *ret_move = MOVE_NONE;
+        return 0;
     }
 
     // if all squares are used then the game is over, so
