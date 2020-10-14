@@ -16,8 +16,8 @@
 #define main SDL_main
 #endif
 
-#define DEFAULT_WIN_WIDTH    1500
-#define DEFAULT_WIN_HEIGHT    800
+#define DEFAULT_LINUX_WIN_WIDTH    1500
+#define DEFAULT_LINUX_WIN_HEIGHT    800
 
 #define MAX_AVAIL_PLAYERS         (sizeof(avail_players) / sizeof(avail_players[0]))
 #define MAX_TOURNAMENT_PLAYERS    (sizeof(tournament_players) / sizeof(tournament_players[0]))
@@ -67,8 +67,8 @@ typedef struct {
 // xxx make some of these const
 //
 
-static int                 win_width  = DEFAULT_WIN_WIDTH;
-static int                 win_height = DEFAULT_WIN_HEIGHT;
+static int                 win_width  = DEFAULT_LINUX_WIN_WIDTH;
+static int                 win_height = DEFAULT_LINUX_WIN_HEIGHT;
 
 static int                 game_state   = GAME_STATE_RESET;
 static int                 game_request = GAME_REQUEST_NONE;
@@ -479,9 +479,15 @@ bool move_cancelled(void)
 // defines
 //
 
+#ifdef ANDROID
+#define CTL_X    0
+#define CTL_Y    (win_width + 20)
+#define CTL_COLS (win_width / sdl_font_char_width(FONTSZ))
+#else
 #define CTL_X    (win_height + 10)
 #define CTL_Y    0
 #define CTL_COLS ((win_width - CTL_X) / sdl_font_char_width(FONTSZ))
+#endif
 
 //
 // define events
@@ -561,7 +567,11 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     // ----------------------------
 
     if (request == PANE_HANDLER_REQ_INITIALIZE) {
+#ifdef ANDROID
+        double sq_wh = (win_width - 2) / 8. - 2;
+#else
         double sq_wh = (win_height - 2) / 8. - 2;
+#endif
 
         INFO("PANE x,y,w,h  %d %d %d %d\n", pane->x, pane->y, pane->w, pane->h);
 
@@ -1012,19 +1022,24 @@ static rect_t *rc_to_loc(int r_arg, int c_arg)
 {
     static rect_t loc[10][10];
     static bool first_call = true;
+#ifdef ANDROID
+    int win_dim = win_width;
+#else
+    int win_dim = win_height;
+#endif
 
     if (first_call) {
         int r, c, i, sq_beg[8], sq_end[8];
         double tmp;
 
-        tmp = (win_height - 2) / 8.;
+        tmp = (win_dim - 2) / 8.;
         for (i = 0; i < 8; i++) {
             sq_beg[i] = rint(2 + i * tmp);
         }
         for (i = 0; i < 7; i++) {
             sq_end[i] = sq_beg[i+1] - 3;
         }
-        sq_end[7] = win_height - 3;
+        sq_end[7] = win_dim - 3;
 
         for (r = 1; r <= 8; r++) {
             for (c = 1; c <= 8; c++) {
