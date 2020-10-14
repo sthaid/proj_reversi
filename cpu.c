@@ -55,11 +55,11 @@ static void create_eval_str(int eval_int, char *eval_str)
     // eval_str should not exceed 16 char length, 
     // to avoid characters being off of the window
     if (eval_int > 1000000) {
-        sprintf(eval_str, "CPU WIN BY %d", eval_int-1000000);
+        sprintf(eval_str, "CPU TO WIN BY %d", eval_int-1000000);
     } else if (eval_int == 1000000) {
         sprintf(eval_str, "TIE");
     } else if (eval_int < -1000000) {
-        sprintf(eval_str, "HUMAN WIN BY %d", -eval_int-1000000);
+        sprintf(eval_str, "HUMAN CAN WIN BY %d", -eval_int-1000000);
     } else if (eval_int > 500) {
         sprintf(eval_str, "CPU ADVANTAGE");
     } else if (eval_int < -500) {

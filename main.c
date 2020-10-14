@@ -31,7 +31,11 @@
 #define GAME_REQUEST_START       2
 #define GAME_REQUEST_UNDO        3
 
+#ifndef ANDROID
+#define FONTSZ  60
+#else
 #define FONTSZ  70
+#endif
 
 #define CONFIG_FILENAME ".reversi_config"
 #define CONFIG_VERSION  1
@@ -688,7 +692,11 @@ static void render_game_mode(pane_cx_t *pane_cx)
         // if there are no possible moves for this player then
         // register for the HUMAN_MOVE_PASS event
         if (pm->max == 0) {
+#ifndef ANDROID
             register_event(pane_cx, 9, 10, SDL_EVENT_HUMAN_MOVE_PASS, "PASS");
+#else
+            register_event(pane_cx, 2, 18, SDL_EVENT_HUMAN_MOVE_PASS, "PASS");
+#endif
         }
 
         // register for the HUMAN_UNDO event
