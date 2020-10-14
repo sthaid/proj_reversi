@@ -76,27 +76,27 @@ void logmsg(char *lvl, const char *func, char *fmt, ...)
     if (strcmp(lvl, "INFO") == 0) {
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                     "%s %s %s: %s\n",
-                    time2str(time_str, time(NULL), false),
+                    time2str(time_str, get_real_time_us(), false, true, true),
                     lvl, func, msg);
     } else if (strcmp(lvl, "WARN") == 0) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
                     "%s %s %s: %s\n",
-                    time2str(time_str, time(NULL), false),
+                    time2str(time_str, get_real_time_us(), false, true, true),
                     lvl, func, msg);
     } else if (strcmp(lvl, "FATAL") == 0) {
         SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION,
                         "%s %s %s: %s\n",
-                        time2str(time_str, time(NULL), false),
+                        time2str(time_str, get_real_time_us(), false, true, true),
                         lvl, func, msg);
     } else if (strcmp(lvl, "DEBUG") == 0) {
         SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION,
                      "%s %s %s: %s\n",
-                     time2str(time_str, time(NULL), false),
+                     time2str(time_str, get_real_time_us(), false, true, true),
                      lvl, func, msg);
     } else {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                      "%s %s %s: %s\n",
-                     time2str(time_str, time(NULL), false),
+                     time2str(time_str, get_real_time_us(), false, true, true),
                      lvl, func, msg);
     }
 }
@@ -104,6 +104,7 @@ void logmsg(char *lvl, const char *func, char *fmt, ...)
 
 // -----------------  TIME UTILS  -----------------------------------------
 
+#ifndef ANDROID
 uint64_t tsc_timer(void)
 {
     unsigned long  tsc;
@@ -113,6 +114,7 @@ uint64_t tsc_timer(void)
     tsc = (unsigned long)_edx << 32 | _eax;
     return tsc;
 }
+#endif
 
 uint64_t microsec_timer(void)
 {
@@ -288,7 +290,7 @@ int getsockaddr(char * node, int port, struct sockaddr_in * ret_addr)
 
     sprintf(port_str, "%d", port);
 
-    bzero(&hints, sizeof(hints));
+    memset(&hints, 0, sizeof(hints));
     hints.ai_family   = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = 0;

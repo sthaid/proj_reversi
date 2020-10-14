@@ -13,7 +13,9 @@
 #define SHOW_DEFINE_STR(x) #x
 
 // for use in call to madvise
+#ifndef PAGE_SIZE
 #define PAGE_SIZE 4096L
+#endif
 #define ROUND_UP(x,n) (((uint64_t)(x) + ((uint64_t)(n) - 1)) & ~((uint64_t)(n) - 1))  // x must be pwr 2
 
 // -----------------  LOGGING  -----------------------------------

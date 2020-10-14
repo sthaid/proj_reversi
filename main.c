@@ -12,6 +12,10 @@
 // defines
 //
 
+#ifdef ANDROID
+#define main SDL_main
+#endif
+
 #define DEFAULT_WIN_WIDTH    1500
 #define DEFAULT_WIN_HEIGHT    800
 
@@ -78,8 +82,13 @@ static player_t           *avail_players[] =
                             { &human, &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, &CPU6, };
 
 static tournament_t        tournament;
+#ifndef ANDROID
 static player_t           *tournament_players[] = 
                             { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, &CPU6, };
+#else
+static player_t           *tournament_players[] = 
+                            { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, };
+#endif
 
 config_t                   config[] = { { "player_black_idx",   "0" },
                                         { "player_white_idx",   "5" },
@@ -104,15 +113,17 @@ static int pane_hndlr(pane_cx_t *pane_cx, int request, void * init_params, sdl_e
 int main(int argc, char **argv)
 {
     bool fullscreen = false;
-    char opt_char;
+    unsigned char opt_char;
     pthread_t tid;
+
+    INFO("STARTING\n");
 
     // get options
     // -f         - fullscreen
     // -g wwwxhhh - xxx maybe later
     while (true) {
         opt_char = getopt(argc, argv, "f");
-        if (opt_char == -1) {
+        if (opt_char == 0xff) {
             break;
         }
         switch (opt_char) {
@@ -813,7 +824,7 @@ static void render_game_choose_player_mode(pane_cx_t *pane_cx)
                        (i/2) * 2,            // row
                        (i%2) * (CTL_COLS/2), // col
                        SDL_EVENT_CHOOSE_PLAYER_SELECT + i,
-                       avail_players[i]->name);
+                       "%s", avail_players[i]->name);
     }
 }
 

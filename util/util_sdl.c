@@ -21,10 +21,14 @@
 #endif
 
 #include "util_sdl.h"
+#include "util_misc.h"
+#ifdef ENABLE_UTIL_SDL_BUTTON_SOUND
 #include "util_sdl_button_sound.h"
+#endif
+#ifndef ANDROID
 #include "util_png.h"
 #include "util_jpeg.h"
-#include "util_misc.h"
+#endif
 
 //
 // defines
@@ -114,7 +118,9 @@ static int find_1_intersect(point_t *p1, point_t *p2, rect_t *pane, point_t *p_i
 static int find_n_intersect(point_t *p1, point_t *p2, rect_t *pane, point_t *p_intersect);
 static int find_x_intersect(point_t *p1, point_t *p2, double X, point_t *p_intersect);
 static int find_y_intersect(point_t *p1, point_t *p2, double Y, point_t *p_intersect);
+#ifndef ANDROID
 static char *print_screen_filename(void);
+#endif
 
 // 
 // inline procedures
@@ -155,31 +161,22 @@ int32_t sdl_init(int32_t *w, int32_t *h, bool fullscreen, bool resizeable, bool 
 #ifndef ANDROID
     #define SDL_FLAGS ((resizeable ? SDL_WINDOW_RESIZABLE : 0) | \
                        (fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0))
-    sdl_win_width  = (!fullscreen ? *w : 0);
-    sdl_win_height = (!fullscreen ? *h : 0);
     if (SDL_CreateWindowAndRenderer(*w, *h, SDL_FLAGS, &sdl_window, &sdl_renderer) != 0) {
         ERROR("SDL_CreateWindowAndRenderer failed\n");
         return -1;
     }
 #else
-    #define SDL_FLAGS (SDL_WINDOW_FULLSCREEN_DESKTOP)
-    sdl_win_width  = 0;
-    sdl_win_height = 0;
-    if (SDL_CreateWindowAndRenderer(*w, *h, SDL_FLAGS, &sdl_window, &sdl_renderer) != 0) {
+    if (SDL_CreateWindowAndRenderer(0, 0, SDL_WINDOW_FULLSCREEN, &sdl_window, &sdl_renderer) != 0) {
         ERROR("SDL_CreateWindowAndRenderer failed\n");
         return -1;
     }
 #endif
 
-    // the size of the created window may be different than what was requested
-    // - call sdl_poll_event to flush all of the initial events,
-    //   and especially to process the SDL_WINDOWEVENT_SIZE_CHANGED event
-    //   which may update sdl_win_width and sdl_win_height
-    // - return the updated window width & height to caller
-    sdl_poll_event();
-    INFO("sdl_win_width=%d sdl_win_height=%d\n", sdl_win_width, sdl_win_height);
-    *w = sdl_win_width;
-    *h = sdl_win_height;
+    // get the actual window size, which will be returned to caller and
+    // also saved in vars sdl_win_width/height
+    SDL_GetWindowSize(sdl_window, w, h);
+    sdl_win_width  = *w;
+    sdl_win_height = *h;
 
 #ifdef ENABLE_UTIL_SDL_BUTTON_SOUND
     // init button_sound
@@ -453,10 +450,12 @@ void sdl_pane_manager(void *display_cx,                        // optional, cont
                     } else if (event->event_id == SDL_EVENT_KEY_ALT + 'x') {  // ALT-x: terminate pane
                         pane_terminate(&pane_list_head, FG_PANE_CX);
                         redraw = true;
+#ifndef ANDROID
                     } else if (event->event_id == SDL_EVENT_KEY_ALT + 'p'  || // ALT-p: print screen
                                event->event_id == SDL_EVENT_KEY_CTRL + 'p') { // CTRL-p: print screen
                         sdl_print_screen(print_screen_filename(),true,NULL);
                         redraw = true;
+#endif
                     } else if (event->event_id == SDL_EVENT_KEY_ALT + SDL_EVENT_KEY_UP_ARROW) {  // ALT+arrow: move pane
                         FG_PANE_CX->y_disp -= pane_move_speed();
                         redraw = true;
@@ -872,7 +871,7 @@ sdl_event_t * sdl_poll_event(void)
         int32_t y_last;
     } mouse_motion;
 
-    bzero(&event, sizeof(event));
+    memset(&event, 0,sizeof(event));
 
     // if a push event is pending then return that event;
     // the push event can be used to inject an event from another thread,
@@ -1163,7 +1162,7 @@ sdl_event_t * sdl_poll_event(void)
             }
             if (found_pane_cx != event.event_cx) {
                 DEBUG("DISCARDING EVENT\n");
-                bzero(&event, sizeof(event));
+                memset(&event, 0, sizeof(event));
             }
         }
 
@@ -1834,7 +1833,7 @@ texture_t sdl_create_filled_circle_texture(int32_t radius, int32_t color)
         } while (0)
 
     // initialize pixels
-    bzero(pixels,sizeof(pixels));
+    memset(pixels,0,sizeof(pixels));
     while(x >= y) {
         DRAWLINE(y+radius, -x+radius, x+radius, rgba);
         DRAWLINE(x+radius, -y+radius, y+radius, rgba);
@@ -2135,6 +2134,7 @@ void sdl_update_iyuv_texture(texture_t texture,
 
 // -----------------  PRINT SCREEN -------------------------------------- 
 
+#ifndef ANDROID
 void sdl_print_screen(char *file_name, bool flash_display, rect_t * rect_arg) 
 {
     uint8_t * pixels = NULL;
@@ -2226,6 +2226,7 @@ static char *print_screen_filename(void)
 
     return filename;
 }
+#endif
 
 // -----------------  COLORS  ------------------------------------------- 
 
