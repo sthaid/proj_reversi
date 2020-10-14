@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# set directory variables
+TOP=`pwd`
+SDL_DIR=$TOP/SDL2-2.0.12
+BUILD=$SDL_DIR/build/org.sthaid.reversi
+
+# if SDL_DIR exists it must be removed
+if [ -d $SDL_DIR ]; then
+  read -p "$SDL_DIR exists, remove and proceed with setyp (y/n)? " yn
+  if [ "$yn" != y ]; then
+    echo ABORT
+    exit 1
+  fi
+  rm -rf $SDL_DIR
+fi
+
+# extract the SDL2 src from tar file
+echo "Extracting SDL2-2.0.12.tar.gz"
+tar -xf setup_files/SDL2-2.0.12.tar.gz
+echo
+
+# create a template for building reversi
+echo "Creating template build directory org.sthaid.reversi"
+touch stub.c
+./SDL2-2.0.12/build-scripts/androidbuild.sh org.sthaid.reversi stub.c
+rm stub.c
+echo
+
+# $BUILD/app/jni: add additional subdirs (with source code and Android.mk), for the 
+# additional libraries that are needed, which is SDL2_ttf-2.0.15
+echo "Extractng SDL2_ttf-2.0.15.tar.gz"
+cd $BUILD/app/jni
+tar -xf $TOP/setup_files/SDL2_ttf-2.0.15.tar.gz
+echo
+
+# $BUILD/app/jni/src: add symbolic links to the source code needed to build reversi
+echo "Creating symbolic links for reversi source code"
+cd $BUILD/app/jni/src
+rm stub.c
+ln -s ../../../../../../../main.c .
+ln -s ../../../../../../../human.c .
+ln -s ../../../../../../../cpu.c .
+ln -s ../../../../../../../common.h .
+ln -s ../../../../../../../util/util_sdl.[ch] .
+ln -s ../../../../../../../util/util_misc.[ch] .
+echo
+
+# patch the following files:
+# - $BUILD/app/jni/src/Android.mk  
+# - $BUILD/app/src/main/AndroidManifest.xml 
+# - $BUILD/app/src/main/res/values/strings.xml 
+echo "Patching Android.mk, AndroidManifest.xml, and strings.xml"
+cd $TOP/SDL2-2.0.12
+patch -p1 < $TOP/setup_files/setup.patch
+echo
+
+echo "SETUP COMPLETE"
