@@ -24,7 +24,8 @@ DEP = $(SRC_REVERSI:.c=.d)
 all: $(TARGETS)
 
 reversi: $(SRC_REVERSI:.c=.o)
-	$(CC) -o $@ $(SRC_REVERSI:.c=.o) \
+	echo "char *version = \"`git log -1 --format=%h`\";" > version.c
+	$(CC) -o $@ $(SRC_REVERSI:.c=.o) version.c \
               -lpthread -lm -ljpeg -lpng -lSDL2 -lSDL2_ttf
 
 -include $(DEP)
