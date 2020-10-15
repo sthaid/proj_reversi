@@ -87,6 +87,8 @@ typedef struct {
 bool debug_enabled;
 int human_move_select;
 
+extern char *version;
+
 extern player_t human;
 extern player_t CPU1, CPU2, CPU3, CPU4, CPU5, CPU6;
 

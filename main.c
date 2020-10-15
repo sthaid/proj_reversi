@@ -8,6 +8,8 @@
 #include <util_misc.h>
 #include <util_sdl.h>
 
+#include <help.h>
+
 //
 // defines
 //
@@ -94,7 +96,7 @@ static player_t           *tournament_players[] =
                             { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, };
 #endif
 
-config_t                   config[] = { { "player_black_idx",   "0" },
+static config_t            config[] = { { "player_black_idx",   "0" },
                                         { "player_white_idx",   "5" },
                                         { "show_move",          "N" },
                                         { "show_eval",          "N" },
@@ -120,7 +122,7 @@ int main(int argc, char **argv)
     unsigned char opt_char;
     pthread_t tid;
 
-    INFO("STARTING\n");
+    INFO("STARTING version=%s\n", version);
 
     // get options
     // -f         - fullscreen
@@ -501,7 +503,9 @@ bool move_cancelled(void)
 #define SDL_EVENT_HELP                    (SDL_EVENT_USER_DEFINED + 0)
 
 // help mode events
-#define SDL_EVENT_EXIT_HELP               (SDL_EVENT_USER_DEFINED + 5)
+#define SDL_EVENT_HELP_EXIT               (SDL_EVENT_USER_DEFINED + 5)
+#define SDL_EVENT_HELP_MOUSE_WHEEL        (SDL_EVENT_USER_DEFINED + 6)
+#define SDL_EVENT_HELP_MOUSE_MOTION       (SDL_EVENT_USER_DEFINED + 7)
 
 // tournament mode events
 #define SDL_EVENT_SET_GAME_MODE           (SDL_EVENT_USER_DEFINED + 10)
@@ -890,9 +894,9 @@ static void render_tournament_mode(pane_cx_t *pane_cx)
     // xxx comment
     for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
         print(pane_cx, 3+i, 0, 
-                  "%5s : %3.0f %%",
-                  tournament_players[i]->name,
-                  100. * tournament.games_won[i] / tournament.games_played[i]);
+              "%5s : %3.0f %%",
+              tournament_players[i]->name,
+              100. * tournament.games_won[i] / tournament.games_played[i]);
     }
 
     // print total games
@@ -922,15 +926,53 @@ static int event_tournament_mode(pane_cx_t *pane_cx, sdl_event_t *event)
 
 // - - - - - - - - -  HELP MODE - - - - - - - - - - - - - - - - - - 
 
+// xxx review and comments and cleanup
+static int y_top_help;
+static int max_help_line;
+
 static void render_help_mode(pane_cx_t *pane_cx)
 {
-    // help mode ...
-    // xxx display help screen
-    // - mouse wheel scroll
-    // - BACK event at lower right
+    #define FONTSZ_HELP 50
 
-    // register event to exit help mode
-    register_event(pane_cx, -1, -4, SDL_EVENT_EXIT_HELP, "BACK");
+    char *p, *nl;
+    int i, y, fch;
+    rect_t *pane = &pane_cx->pane;
+
+    static bool  first_call = true;
+    static char  version_line[100];
+    static char *lines[200];
+
+    if (first_call) {
+        sprintf(version_line, "Version: %s", version);
+        lines[max_help_line++] = version_line;
+
+        p = help_text;
+        while (true) {
+            nl = strchr(p, '\n');
+            if (nl == NULL) break;
+            *nl = '\0';
+            lines[max_help_line++] = p;
+            p += strlen(p) + 1;
+        }
+
+        first_call = false;
+    }
+
+    // display the help text
+    fch = sdl_font_char_height(FONTSZ_HELP);
+    for (i = 0; i < max_help_line; i++) {
+        y = y_top_help + i * fch;
+        if (y < -fch) continue;
+        if (y >= pane->h) break;
+        if (lines[i][0] != '\0') {  // xxx move this to sdl
+            sdl_render_text(pane, 0, y, FONTSZ_HELP, lines[i], WHITE, BLACK);
+        }
+    }
+
+    // register help events to scroll the help text and exit help mode
+    sdl_register_event(pane, pane, SDL_EVENT_HELP_MOUSE_WHEEL, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
+    sdl_register_event(pane, pane, SDL_EVENT_HELP_MOUSE_MOTION, SDL_EVENT_TYPE_MOUSE_MOTION, pane_cx);
+    register_event(pane_cx, -1, -4, SDL_EVENT_HELP_EXIT, "BACK");
 }
 
 static int event_help_mode(pane_cx_t *pane_cx, sdl_event_t *event)
@@ -939,10 +981,27 @@ static int event_help_mode(pane_cx_t *pane_cx, sdl_event_t *event)
 
     switch (event->event_id) {
 
-    case SDL_EVENT_EXIT_HELP:
+    case SDL_EVENT_HELP_MOUSE_WHEEL:
+        if (event->mouse_wheel.delta_y > 0) {
+            y_top_help += FONTSZ_HELP;
+        } else if (event->mouse_wheel.delta_y < 0) {
+            y_top_help -= FONTSZ_HELP;
+        }
+        break;
+
+    case SDL_EVENT_HELP_MOUSE_MOTION:
+        y_top_help += event->mouse_motion.delta_y;
+        break;
+
+    case SDL_EVENT_HELP_EXIT:
         help_mode = false;
+        y_top_help = 0;
         break;
     }
+
+    int y_top_help_limit = (-max_help_line+5) * ROW2Y(1,FONTSZ_HELP);
+    if (y_top_help < y_top_help_limit) y_top_help = y_top_help_limit;
+    if (y_top_help > 0) y_top_help = 0;
 
     return rc;
 }
