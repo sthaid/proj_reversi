@@ -35,4 +35,4 @@ reversi: $(SRC_REVERSI:.c=.o)
 #
 
 clean:
-	rm -f $(TARGETS) $(DEP) $(DEP:.d=.o)
+	rm -f $(TARGETS) $(DEP) $(DEP:.d=.o) version.c
