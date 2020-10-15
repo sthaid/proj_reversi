@@ -276,3 +276,35 @@ adb shell command examples, run 'adb shell'
 - Proc Filesystem
     cat /proc/<pid>/cmdline
 
+==============================
+APPENDIX - MORE ON SDL
+==============================
+
+https://github.com/oxygine/SDL/blob/master/docs/README-android.md
+
+android-project/app
+    build.gradle        - build info including the application version and SDK
+    src/main/AndroidManifest.xml 
+                        - package manifest. Among others, it contains the class name
+    			  of the main Activity and the package name of the application.
+    jni/		- directory holding native code
+    jni/Application.mk	- Application JNI settings, including target platform and STL library
+    jni/Android.mk	- Android makefile that can call recursively the Android.mk files in all subdirectories
+    jni/SDL/		- (symlink to) directory holding the SDL library files
+    jni/SDL/Android.mk	- Android makefile for creating the SDL shared library
+    jni/src/		- directory holding your C/C++ source
+    jni/src/Android.mk	- Android makefile that you should customize to include your source code 
+                          and any library references
+    src/main/assets/	- directory holding asset files for your application
+    src/main/res/	- directory holding resources for your application
+    src/main/res/mipmap-*  
+                        - directories holding icons for different phone hardware
+    src/main/res/values/strings.xml	
+                        - strings used in your application, including the application name
+    src/main/java/org/libsdl/app/SDLActivity.java 
+                        - the Java class handling the initialization and binding to SDL. 
+                          Be very careful changing this, as the SDL library relies on this 
+                          implementation. You should instead subclass this for your application.
+
+Reading an assets file:
+    ptr = SDL_LoadFile("help.txt", &size);
