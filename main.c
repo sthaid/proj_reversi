@@ -932,7 +932,11 @@ static int max_help_line;
 
 static void render_help_mode(pane_cx_t *pane_cx)
 {
+#ifndef ANDROID
+    #define FONTSZ_HELP 30
+#else
     #define FONTSZ_HELP 50
+#endif
 
     char *p, *nl;
     int i, y, fch;
