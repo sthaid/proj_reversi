@@ -42,8 +42,9 @@
 
 #define MS 1000L
 
-// xxx FATAL
-#define OTHER_COLOR(c)  ((c) == WHITE ? BLACK : WHITE)
+#define OTHER_COLOR(c) ((c) == WHITE ? BLACK : \
+                        (c) == BLACK ? WHITE : \
+                                       ({FATAL("OTHER_COLOR c=%d\n", c);0;}))
 
 #define SWAP(a,b) \
     do { \
