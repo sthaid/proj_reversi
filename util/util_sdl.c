@@ -809,6 +809,9 @@ void sdl_render_text_and_register_event(rect_t * pane, int32_t x, int32_t y,
 {
     rect_t loc_clipped;
     loc_clipped = sdl_render_text(pane, x, y, font_ptsize, str, fg_color, bg_color);
+    if (loc_clipped.w == 0) {
+        return;
+    }
     sdl_register_event(pane, &loc_clipped, event_id, event_type, event_cx);
 }
 
@@ -1202,6 +1205,11 @@ rect_t sdl_render_text(rect_t * pane, int32_t x, int32_t y, int32_t font_ptsize,
     texture_t texture;
     int32_t   width, height;
     rect_t    loc, loc_clipped = {0,0,0,0};
+
+    // if zero length string just return
+    if (str[0] == '\0') {
+        return loc_clipped;
+    }
     
     // create the text texture
     texture =  sdl_create_text_texture(fg_color, bg_color, font_ptsize, str);
@@ -1238,10 +1246,6 @@ void sdl_render_printf(rect_t * pane, int32_t x, int32_t y, int32_t font_ptsize,
     vsnprintf(str, sizeof(str), fmt, ap);
     va_end(ap);
 
-    if (str[0] == '\0') {
-        return;
-    }
-    
     sdl_render_text(pane, x, y, font_ptsize, str, fg_color, bg_color);
 }
 

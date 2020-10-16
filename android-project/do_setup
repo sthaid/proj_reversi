@@ -59,7 +59,7 @@ echo
 # create the launcher icon
 echo "Creating launcher icons"
 cd $BUILD/app/src/main/res
-gcc -Wall `sdl2-config --cflags`-lSDL2 -lSDL2_ttf -lpng -o create_ic_launcher \
+gcc -Wall `sdl2-config --cflags` -lSDL2 -lSDL2_ttf -lpng -o create_ic_launcher \
      ../../../../../../../setup_files/create_ic_launcher.c
 ./create_ic_launcher  mipmap-mdpi/ic_launcher.png      48
 ./create_ic_launcher  mipmap-hdpi/ic_launcher.png      72

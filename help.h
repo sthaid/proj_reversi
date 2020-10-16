@@ -28,7 +28,7 @@ SOURCE CODE\n\
 github.com/sthaid/proj_reversi\n\
 \n\
 Tested on: Android, Fedora 31,\n\
-and Ubuntu XXX.\n\
+and Ubuntu 20.04.1 LTS.\n\
 \n\
 ============\n\
 CPU ALGORITHM\n\

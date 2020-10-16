@@ -1,12 +1,3 @@
-// XXX next static eval
-// - 1000000 for winning / /loosing
-// -  100000 for corners
-// -  -10000 for gateway squares to corners
-// -       1 for good possible moves
-//
-
-// XXX try making a better static_eval, by excluding gateway to corne from pm.max
-
 #include <common.h>
 
 typedef struct {
@@ -21,9 +12,7 @@ static void create_eval_str(int eval_int, char *eval_str);
 static int eval(board_t *b, int my_color, int recursion_depth, int *ret_move);
 static int static_eval_a(board_t *b, int my_color, bool game_over, possible_moves_t *pm);
 
-// -----------------  xxx  --------------------------------------------------
-
-// xxx comments
+// -----------------  CPU PLAYER - GET_MOVE ---------------------------------
 
 #define DEFPROC_CPU_GET_MOVE(name,mrd,piececnt,seid) \
 static int name##_get_move(board_t *b, int my_color, char *eval_str) \
@@ -44,7 +33,7 @@ DEFPROC_CPU_GET_MOVE(CPU4,4,52,a)
 DEFPROC_CPU_GET_MOVE(CPU5,5,51,a)
 DEFPROC_CPU_GET_MOVE(CPU6,6,51,a)
 
-// -----------------  xxx  --------------------------------------------------
+// -----------------  CREATE GAME FORECAST EVALUATION STRING  ----------------
 
 static void create_eval_str(int eval_int, char *eval_str)
 {
@@ -69,7 +58,7 @@ static void create_eval_str(int eval_int, char *eval_str)
     }
 }
 
-// -----------------  xxx  --------------------------------------------------
+// -----------------  CHOOSE BEST MOVE (RECURSIVE ROUTINE)  -----------------
 
 static int eval(board_t *b, int my_color, int recursion_depth, int *ret_move)
 {
@@ -159,26 +148,14 @@ static int eval(board_t *b, int my_color, int recursion_depth, int *ret_move)
         }
     }
 
-    // XXX temp test code
-    if (min_val_cnt == 0) {
-        FATAL("XXX min_val_cnt = 0 \n");
-    }
-    for (i = 0; i < min_val_cnt; i++) {
-        if (val[i].val != min_val) {
-            FATAL("XXX val[%d].val=%d min_val=%d\n",
-              i, val[i].val, min_val);
-        }
-    }
-
     // return move randomly selected from the choices which have board eval equal min_val
     i = (min_val_cnt == 1 ? 0 : (random() % min_val_cnt));
     *ret_move = val[i].move;
     return -min_val;
 }
 
-// -----------------  xxx  --------------------------------------------------
+// -----------------  STATIC BOARD EVALUATOR  -------------------------------
 
-// xxx comments
 #define EVAL_CORNER(r,c) \
     do { \
         if (b->pos[r][c] == NONE) { \
@@ -190,13 +167,6 @@ static int eval(board_t *b, int my_color, int recursion_depth, int *ret_move)
         } \
     } while (0) 
 
-// xxx comments
-// if corner is occupied || diag gateway not occupied
-//     ;
-// else if diagnol gateway == my color
-//   gateway_cnt_my_color++;
-// else 
-//   gateway_cnt_other_color++;
 #define EVAL_GATEWAY_TO_CORNER(r,c,rin,cin) \
     do { \
         if (b->pos[r][c] != NONE || b->pos[rin][cin] == NONE) { \
@@ -219,7 +189,7 @@ static int static_eval_a(board_t *b, int my_color, bool game_over, possible_move
     //  -10000 for gateway squares to corners
     //       1 for  possible moves
 
-    // xxx
+    // if game is over then return a large positive or negative evaluation
     if (game_over) {
         piece_cnt_diff = (my_color == BLACK ? b->black_cnt - b->white_cnt 
                                             : b->white_cnt - b->black_cnt);
@@ -230,19 +200,23 @@ static int static_eval_a(board_t *b, int my_color, bool game_over, possible_move
         }
     }
 
-    // corners
+    // make count of number of corners occupied by my_color and other_color
     EVAL_CORNER(1,1);
     EVAL_CORNER(1,8);
     EVAL_CORNER(8,1);
     EVAL_CORNER(8,8);
 
-    // gateway to corner
+    // make count of number of squares that are diagonally adjacent to
+    // an unoccupied corner, that are occupied by my_color or other_color
     EVAL_GATEWAY_TO_CORNER(1,1, 2,2);
     EVAL_GATEWAY_TO_CORNER(1,8, 2,7);
     EVAL_GATEWAY_TO_CORNER(8,1, 7,2);
     EVAL_GATEWAY_TO_CORNER(8,8, 7,7);
 
-    //  xxx
+    // return evaluation, including points for:
+    // - positive points for occupied corners
+    // - negative points for occupied squares diagonally inside unoccupied corners
+    // - positive points for the number of possible moves
     return 100000 * (corner_cnt_my_color - corner_cnt_other_color) + 
            -10000 * (gateway_cnt_my_color - gateway_cnt_other_color) +
            pm->max;

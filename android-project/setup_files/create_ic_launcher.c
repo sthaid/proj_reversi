@@ -15,8 +15,8 @@
 #include <png.h>
 
 // max,min values
-#define MAX_HEIGHT 1000
-#define MAX_WIDTH  1000
+#define MAX_HEIGHT 300
+#define MAX_WIDTH  300
 #define MIN_HEIGHT 42
 #define MIN_WIDTH  42
 

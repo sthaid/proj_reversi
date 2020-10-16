@@ -22,10 +22,9 @@
 // defines
 //
 
-// xxx comment for why 10 and 9
 #define NONE   0
-#define BLACK  10
-#define WHITE  9
+#define BLACK  10   // using 'BLACK' and 'WHITE' here to refer to 
+#define WHITE  9    // the Reversi Piece; these defines are also in util_sdl.h
 
 #define MOVE_PASS       -1
 #define MOVE_GAME_OVER  -2

@@ -4,9 +4,8 @@ static int human_get_move(board_t *b, int color, char *eval_str);
 
 player_t human = {"HUMAN", human_get_move};
 
-// --------------------------------------------------------------------------
+// -----------------  HUMAN PLAYER - GET_MOVE -------------------------------
 
-// xxx make const b
 static int human_get_move(board_t *b, int my_color, char *eval_str)
 {
     bool             valid_move;

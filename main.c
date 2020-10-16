@@ -1,8 +1,3 @@
-// XXX comments and total review
-// XXX android version
-//     - init code
-// XXX help mode
-
 #include <common.h>
 
 #include <util_misc.h>
@@ -46,6 +41,8 @@
 #define CONFIG_SHOW_MOVE_YN          (config[2].value[0])
 #define CONFIG_SHOW_EVAL_YN          (config[3].value[0])
 
+#define MEMBER_SIZE(type, member) sizeof(((type *)0)->member)
+
 //
 // typedefs
 //
@@ -70,7 +67,6 @@ typedef struct {
 
 //
 // variables
-// xxx make some of these const
 //
 
 static int                 win_width  = DEFAULT_LINUX_WIN_WIDTH;
@@ -125,8 +121,7 @@ int main(int argc, char **argv)
     INFO("STARTING version=%s\n", version);
 
     // get options
-    // -f         - fullscreen
-    // -g wwwxhhh - xxx maybe later
+    // -f : fullscreen
     while (true) {
         opt_char = getopt(argc, argv, "f");
         if (opt_char == 0xff) {
@@ -172,7 +167,8 @@ int main(int argc, char **argv)
         1,              // number of pane handler varargs that follow
         pane_hndlr, NULL, 0, 0, win_width, win_height, PANE_BORDER_STYLE_NONE);
 
-    // done
+    // program terminating
+    INFO("TERMINATING\n");
     return 0;
 }
 
@@ -185,10 +181,7 @@ static void *game_thread(void *cx)
     player_t *player;
 
 restart:
-    // init game  xxx or just inline may be clearer
-    // xxx review and cleanup
-
-    // xxx
+    // init the first game_move, including the starting board 
     memset(game_moves, 0, sizeof(game_moves));
     game_moves[0].board.pos[4][4] = WHITE;
     game_moves[0].board.pos[4][5] = BLACK;
@@ -198,16 +191,16 @@ restart:
     game_moves[0].board.white_cnt = 2;
     max_game_moves = 1;
 
-    // xxx
+    // the game state is now GAME_STATE_RESET
     game_state = GAME_STATE_RESET;
     __sync_synchronize();
-
-    // xxx
     if (game_request == GAME_REQUEST_RESET) {
         game_request = GAME_REQUEST_NONE;
     }
 
-    // xxx comment 
+    // when in tournament mode get the 2 tournament players and start the game;
+    // otherwise get the 2 game players and remain in this loop until 
+    //  game start is requested
     while (true) {
         if (tournament.enabled) {
             tournament_get_players(&player_black, &player_white);
@@ -229,39 +222,43 @@ restart:
     __sync_synchronize();
 
     // loop until game is finished
-    // xxx comments and cleanup
     while (true) {
 again:
-        // xxx
+        // determine whose turn it is
         whose_turn = (max_game_moves & 1) ? BLACK : WHITE;
         player = (whose_turn == BLACK ? player_black : player_white);
 
         // set game_moves fields:
-        // - player_is_human  xxx describe how these are all used
-        // - possible_moves  xxx 
+        // - player_is_human, and
+        // - possible_moves 
+        // these fields are used by the display code
         game_moves[max_game_moves-1].player_is_human = (strcasecmp(player->name, "human") == 0);
         get_possible_moves(&game_moves[max_game_moves-1].board, whose_turn, 
                            &game_moves[max_game_moves-1].possible_moves);  
 
         // get move by calling player->get_move; 
-        // this may also set game_moves field:
-        // - eval_str - xxx when is this set, and how used
+        // this may also set game_moves[].eval_str field, which is set by
+        //  code in cpu.c when cpu is playing human, the eval_str is 
+        //  displayed when displaying it is enabled
         move = player->get_move(&game_moves[max_game_moves-1].board, 
                                 whose_turn, 
                                 game_moves[max_game_moves-1].eval_str);
 
-        // xxx
+        // if move returned is MOVE_GAME_OVER then break out of the game play loop
         if (move == MOVE_GAME_OVER) {
             break;
         }
 
-        // xxx
+        // if there is a pending GAME_REQUEST then get_move will return MOVE_NONE,
+        // the GAME_REQUEST is handled here, supported GAME_REQUESTS are
+        // - GAME_REQUEST_UNDO: undo last move
+        // - GAME_REQUEST_RESET: game is reset
+        // - GAME_REQUEST_RESTART: game is reset and starts
         if (game_request != GAME_REQUEST_NONE) {
             if (game_request == GAME_REQUEST_UNDO) {
                 if (max_game_moves > 2) {
                     max_game_moves -= 2;
                 }
-                INFO("GOT UNDO, max_game_moves now %d\n", max_game_moves);
                 game_request = GAME_REQUEST_NONE;
                 goto again;
             } else if (game_request == GAME_REQUEST_RESET || game_request == GAME_REQUEST_START) {
@@ -272,14 +269,16 @@ again:
             }
         }
 
-        // xxx
+        // sanity check, this should never happen, because MOVE_NONE is returned by
+        // player->get_move only when there has been a GAME_REQUEST which would have
+        // been handled by the code block above
         if (move == MOVE_NONE) {
             FATAL("invalid move %d\n", move);
         }
 
         // add new entry to game_moves, for the next player's move, and set fields
         // - board - is first set to a copy of the current board, and then 
-        //   apply_move is called to update the board based on the move determined above0
+        //   apply_move is called to update the board based on the move determined above
         // - eval_str - is copied from the current eval_str
         memset(&game_moves[max_game_moves], 0, sizeof(game_moves_t));
         game_moves[max_game_moves].board = game_moves[max_game_moves-1].board;
@@ -321,7 +320,12 @@ static void game_mode_get_players(player_t **pb, player_t **pw)
         FATAL("config idx str invalid\n");
     }
 
-    // xxx check range too
+    if (pbidx < 0 || pbidx >= MAX_AVAIL_PLAYERS) {
+        FATAL("config pbidx %d invalid\n", pbidx);
+    }
+    if (pwidx < 0 || pwidx >= MAX_AVAIL_PLAYERS) {
+        FATAL("config pwidx %d invalid\n", pwidx);
+    }
 
     *pb = avail_players[pbidx];
     *pw = avail_players[pwidx];
@@ -427,7 +431,7 @@ void  apply_move(board_t *b, int my_color, int move, unsigned char highlight[][1
 
     if (highlight) {
         sleep(1);
-        memset(highlight, 0, 100);  // xxx 100?  use sizeof
+        memset(highlight, 0, MEMBER_SIZE(game_moves_t,highlight));
     }
 
     if (!succ) {
@@ -479,7 +483,11 @@ bool move_cancelled(void)
 
 // -----------------  DISPLAY  ----------------------------------------------------
 
-// xxx comments on the modes and sketch the displays
+// pane_hndlr has the following modes:
+// - game
+// - game choose player
+// - tournament
+// - help
 
 //
 // defines
@@ -776,7 +784,7 @@ static void render_game_mode(pane_cx_t *pane_cx)
         if (strcasecmp(player_black->name, "human") == 0) human_players_cnt++;
         if (strcasecmp(player_white->name, "human") == 0) human_players_cnt++;
         if (human_players_cnt == 1) {
-            print(pane_cx, 7, 0, "%s", gm->eval_str);  // xxx or fix sdl to just return
+            print(pane_cx, 7, 0, "%s", gm->eval_str);
         }
     }
 }
@@ -817,7 +825,6 @@ static int event_game_mode(pane_cx_t *pane_cx, sdl_event_t *event)
         human_move_select = MOVE_PASS;
         break;
     case SDL_EVENT_HUMAN_UNDO:
-        INFO("setting request UNDO\n");
         game_request = GAME_REQUEST_UNDO;
         break;
     case SDL_EVENT_HUMAN_MOVE_SELECT ... SDL_EVENT_HUMAN_MOVE_SELECT+99:
@@ -879,19 +886,15 @@ static void render_tournament_mode(pane_cx_t *pane_cx)
 {
     int i;
 
-    // xxx comment
+    // rendr the board
     render_board(pane_cx);
 
-    // xxx comment
+    // register for the HELP, and SET_GAME_MODE events
     register_event(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
-
-    // register event to go back to game mode
     register_event(pane_cx, 0, 0, SDL_EVENT_SET_GAME_MODE, "TOURNAMENT");
 
-    // display tournament mode status
+    // print tournament mode status
     print(pane_cx, 1.5, 0, "%5s vs %s", player_black->name, player_white->name);
-
-    // xxx comment
     for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
         print(pane_cx, 3+i, 0, 
               "%5s : %3.0f %%",
@@ -926,7 +929,6 @@ static int event_tournament_mode(pane_cx_t *pane_cx, sdl_event_t *event)
 
 // - - - - - - - - -  HELP MODE - - - - - - - - - - - - - - - - - - 
 
-// xxx review and comments and cleanup
 static int y_top_help;
 static int max_help_line;
 
@@ -946,6 +948,8 @@ static void render_help_mode(pane_cx_t *pane_cx)
     static char  version_line[100];
     static char *lines[200];
 
+    // on first call divide the help_text into lines, and
+    // add a first line for the program Version
     if (first_call) {
         sprintf(version_line, "Version: %s", version);
         lines[max_help_line++] = version_line;
@@ -968,9 +972,7 @@ static void render_help_mode(pane_cx_t *pane_cx)
         y = y_top_help + i * fch;
         if (y < -fch) continue;
         if (y >= pane->h) break;
-        if (lines[i][0] != '\0') {  // xxx move this to sdl
-            sdl_render_text(pane, 0, y, FONTSZ_HELP, lines[i], WHITE, BLACK);
-        }
+        sdl_render_text(pane, 0, y, FONTSZ_HELP, lines[i], WHITE, BLACK);
     }
 
     // register help events to scroll the help text and exit help mode
@@ -1086,7 +1088,7 @@ static void print(pane_cx_t *pane_cx, double r, double c, char *fmt, ...)
     va_end(ap);
 
     // register event
-    sdl_render_text( pane, x, y, FONTSZ, str, WHITE, BLACK);
+    sdl_render_text(pane, x, y, FONTSZ, str, WHITE, BLACK);
 }
 
 static rect_t *rc_to_loc(int r_arg, int c_arg)
