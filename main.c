@@ -93,9 +93,9 @@ static player_t           *tournament_players[] =
 #endif
 
 static config_t            config[] = { { "player_black_idx",   "0" },
-                                        { "player_white_idx",   "5" },
-                                        { "show_move",          "N" },
-                                        { "show_eval",          "N" },
+                                        { "player_white_idx",   "2" },
+                                        { "show_move",          "Y" },
+                                        { "show_eval",          "Y" },
                                         { "",                   ""  } };
 
 //
