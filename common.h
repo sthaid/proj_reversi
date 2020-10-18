@@ -91,6 +91,7 @@ extern char *version;
 
 extern player_t human;
 extern player_t CPU1, CPU2, CPU3, CPU4, CPU5, CPU6;
+extern player_t OLDA1, OLDA2, OLDA3, OLDA4, OLDA5, OLDA6;
 
 //
 // prototypes
@@ -99,5 +100,19 @@ extern player_t CPU1, CPU2, CPU3, CPU4, CPU5, CPU6;
 void apply_move(board_t *b, int my_color, int move, unsigned char highlight[][10]);
 void get_possible_moves(board_t *b, int my_color, possible_moves_t *pm);
 bool move_cancelled(void);
+
+//
+// inline procedures
+//
+
+static inline int min(int a, int b)
+{
+    return a < b ? a : b;
+}
+
+static inline int max(int a, int b)
+{
+    return a > b ? a : b;
+}
 
 #endif

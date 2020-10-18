@@ -81,19 +81,19 @@ static int                 max_game_moves;
 static player_t           *player_black;
 static player_t           *player_white;
 static player_t           *avail_players[] = 
-                            { &human, &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, &CPU6, };
+                            { &human, &OLDA3, &OLDA4, &OLDA5, &CPU3, &CPU4, &CPU5, };
 
 static tournament_t        tournament;
 #ifndef ANDROID
 static player_t           *tournament_players[] = 
-                            { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, &CPU6, };
+                            { &OLDA3, &CPU3, &OLDA4, &CPU4, &OLDA5, &CPU5, };
 #else
 static player_t           *tournament_players[] = 
-                            { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, };
+                            { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, };  //xxx
 #endif
 
 static config_t            config[] = { { "player_black_idx",   "0" },
-                                        { "player_white_idx",   "2" },
+                                        { "player_white_idx",   "6" },
                                         { "show_move",          "Y" },
                                         { "show_eval",          "Y" },
                                         { "",                   ""  } };
@@ -222,6 +222,7 @@ restart:
     __sync_synchronize();
 
     // loop until game is finished
+    unsigned long start_us = microsec_timer(); //xxx
     while (true) {
 again:
         // determine whose turn it is
@@ -289,6 +290,9 @@ again:
                    (CONFIG_SHOW_MOVE_YN == 'Y' && !tournament_game 
                     ? game_moves[max_game_moves-1].highlight : NULL));
     }
+    unsigned long end_us = microsec_timer();  // xxx
+    INFO("DURATION = %0.1f secs\n",
+        (end_us - start_us) / 1000000.);
 
     // game is over
     game_state = GAME_STATE_COMPLETE;
@@ -435,7 +439,7 @@ void  apply_move(board_t *b, int my_color, int move, unsigned char highlight[][1
     }
 
     if (!succ) {
-        FATAL("invalid call to apply_move\n");
+        FATAL("invalid call to apply_move, move=%d\n", move);
     }
 }
 
