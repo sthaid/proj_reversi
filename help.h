@@ -1,5 +1,5 @@
 //       1         2         3
-// 456789 123456789 123456789 12
+// 456789 123456789 123456789 123456
 
 char help_text[] =
 "\
@@ -35,28 +35,20 @@ CPU ALGORITHM\n\
 ============\n\
 \n\
 The CPU<N> player algorithm\n\
-applies all possible moves and\n\
+applies possible moves and\n\
 opposing countermoves up to a\n\
-look ahead level. The look ahead\n\
-level is determined based on\n\
-difficulty level 'N'.\n\
+look ahead level, or game over.\n\
+Look ahead level is determined\n\
+based on difficulty level 'N'.\n\
 \n\
 When the look ahead level is\n\
 reached, or the game is over,\n\
-then a static evaluation of the\n\
-board is performed. The move is\n\
-chosen which leads to the\n\
-highest static evaluation.\n\
+then a heuristic evaluation of\n\
+the board is performed. The move\n\
+is chosen which leads to the\n\
+highest heuristic value.\n\
 \n\
-The look ahead depth depends on\n\
-difficulty level 'N'. Example,\n\
-when N=5 the look ahead level is\n\
-5, except when there are greater\n\
-than 51 pieces on the board then\n\
-the look ahead terminates when\n\
-the game is over.\n\
-\n\
-The static evaluator takes the\n\
+The heuristic evaluator takes the\n\
 following into account, these\n\
 criteria are listed in order of\n\
 importance:\n\
@@ -82,10 +74,9 @@ CPU<N> players with the higher\n\
 'N' win a higher percentage of\n\
 their games.\n\
 \n\
-The primary purpose of tournament\n\
-mode is to test new static\n\
-evaluation algorithms. Additional\n\
-static evaluators can be added to\n\
-cpu.c, and CPU players defined to\n\
-use the new static evaluator.\n\
+A primary purpose of tournament\n\
+mode is to test new heuristic\n\
+evaluators. Additional\n\
+heuristic evaluators can be added\n\
+to cpu.c.\n\
 ";

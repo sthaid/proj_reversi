@@ -90,7 +90,7 @@ int human_move_select;
 extern char *version;
 
 extern player_t human;
-extern player_t CPU1, CPU2, CPU3, CPU4, CPU5, CPU6;
+extern player_t CPU1, CPU2, CPU3, CPU4, CPU5, CPU6, CPU7, CPU8;
 extern player_t OLDA1, OLDA2, OLDA3, OLDA4, OLDA5, OLDA6;
 
 //

@@ -1,3 +1,8 @@
+// Notes on this file:
+// - is the first version of the CPU algorithm.
+// - similar to Minimax.
+// - keep for reference, and using to compare performance
+
 #include <common.h>
 
 typedef struct {

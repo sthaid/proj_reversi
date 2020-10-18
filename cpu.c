@@ -37,12 +37,14 @@ static int name##_get_move(board_t *b, int my_color, char *eval_str) \
 } \
 player_t name = {#name, name##_get_move};
 
-DEFPROC_CPU_GET_MOVE(CPU1,1,55,a)   // xxx update these
+DEFPROC_CPU_GET_MOVE(CPU1,1,55,a)
 DEFPROC_CPU_GET_MOVE(CPU2,2,54,a)
 DEFPROC_CPU_GET_MOVE(CPU3,3,53,a)
 DEFPROC_CPU_GET_MOVE(CPU4,4,52,a)
 DEFPROC_CPU_GET_MOVE(CPU5,5,51,a)
-DEFPROC_CPU_GET_MOVE(CPU6,6,51,a)
+DEFPROC_CPU_GET_MOVE(CPU6,6,50,a)
+DEFPROC_CPU_GET_MOVE(CPU7,7,49,a)
+DEFPROC_CPU_GET_MOVE(CPU8,8,48,a)
 
 // -----------------  CREATE GAME FORECAST EVALUATION STRING  ----------------
 

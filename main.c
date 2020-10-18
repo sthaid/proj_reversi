@@ -81,19 +81,20 @@ static int                 max_game_moves;
 static player_t           *player_black;
 static player_t           *player_white;
 static player_t           *avail_players[] = 
-                            { &human, &OLDA3, &OLDA4, &OLDA5, &CPU3, &CPU4, &CPU5, };
+                            { &human, 
+                              &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, &CPU6, &CPU7, &CPU8, };
 
 static tournament_t        tournament;
 #ifndef ANDROID
 static player_t           *tournament_players[] = 
-                            { &OLDA3, &CPU3, &OLDA4, &CPU4, &OLDA5, &CPU5, };
+                            { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, &CPU6, &CPU7, &CPU8, };
 #else
 static player_t           *tournament_players[] = 
-                            { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, };  //xxx
+                            { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, &CPU6, };
 #endif
 
 static config_t            config[] = { { "player_black_idx",   "0" },
-                                        { "player_white_idx",   "6" },
+                                        { "player_white_idx",   "5" },
                                         { "show_move",          "Y" },
                                         { "show_eval",          "Y" },
                                         { "",                   ""  } };
@@ -907,7 +908,7 @@ static void render_tournament_mode(pane_cx_t *pane_cx)
     }
 
     // print total games
-    print(pane_cx, 4.5+i, 0, "GAMES = %d", tournament.total_games_played);
+    print(pane_cx, 3.5+i, 0, "GAMES = %d", tournament.total_games_played);
 }
 
 static int event_tournament_mode(pane_cx_t *pane_cx, sdl_event_t *event)
