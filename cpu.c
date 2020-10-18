@@ -56,15 +56,15 @@ static void create_eval_str(int eval_int, char *eval_str)
 
     // eval_str should not exceed 16 char length, 
     // to avoid characters being off the window
-    if (eval_int > 1000000) {
-        sprintf(eval_str, "CPU TO WIN BY %d", eval_int-1000000);
-    } else if (eval_int == 1000000) {
+    if (eval_int > 10000000) {
+        sprintf(eval_str, "CPU TO WIN BY %d", eval_int-10000000);
+    } else if (eval_int == 10000000) {
         sprintf(eval_str, "TIE");
-    } else if (eval_int < -1000000) {
-        sprintf(eval_str, "HUMAN CAN WIN BY %d", -eval_int-1000000);
-    } else if (eval_int > 500) {
+    } else if (eval_int < -10000000) {
+        sprintf(eval_str, "HUMAN CAN WIN BY %d", -eval_int-10000000);
+    } else if (eval_int > 50000) {
         sprintf(eval_str, "CPU ADVANTAGE");
-    } else if (eval_int < -500) {
+    } else if (eval_int < -50000) {
         sprintf(eval_str, "HUMAN ADVANTAGE");
     } else {
         eval_str[0] = '\0';
@@ -203,9 +203,9 @@ static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possi
         piece_cnt_diff = (my_color == BLACK ? b->black_cnt - b->white_cnt
                                             : b->white_cnt - b->black_cnt);
         if (piece_cnt_diff >= 0) {
-            value = 1000000 + piece_cnt_diff;
+            value =  10000000 + piece_cnt_diff;
         } else {
-            value = -1000000 + piece_cnt_diff;
+            value = -10000000 + piece_cnt_diff;
         }
     } else {
         // game is not over ...
@@ -223,9 +223,9 @@ static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possi
         EVAL_GATEWAY_TO_CORNER(8,1, 7,2);
         EVAL_GATEWAY_TO_CORNER(8,8, 7,7);
 
-        value = (100000 * (corner_cnt_my_color - corner_cnt_other_color)) +
-                (-10000 * (gateway_cnt_my_color - gateway_cnt_other_color)) +
-                (100    * pm->max);
+        value = (1000000 * (corner_cnt_my_color - corner_cnt_other_color)) +
+                (-100000 * (gateway_cnt_my_color - gateway_cnt_other_color)) +
+                (100     * pm->max);
 
         // so that cpu vs cpu games are not always the same, 
         // add a random value to the value computed above during
