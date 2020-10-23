@@ -70,11 +70,6 @@ typedef struct {
 } board_t;
 
 typedef struct {
-    char name[100];
-    int (*get_move)(board_t *b, int my_color, char *eval_str);
-} player_t;
-
-typedef struct {
     int move[64];
     int max;
     int color;
@@ -89,10 +84,6 @@ int human_move_select;
 
 extern char *version;
 
-extern player_t human;
-extern player_t CPU1, CPU2, CPU3, CPU4, CPU5, CPU6, CPU7, CPU8;
-extern player_t OLDA1, OLDA2, OLDA3, OLDA4, OLDA5, OLDA6;
-
 //
 // prototypes
 //
@@ -100,6 +91,10 @@ extern player_t OLDA1, OLDA2, OLDA3, OLDA4, OLDA5, OLDA6;
 void apply_move(board_t *b, int my_color, int move, unsigned char highlight[][10]);
 void get_possible_moves(board_t *b, int my_color, possible_moves_t *pm);
 bool move_cancelled(void);
+
+int human_get_move(int level, board_t *b, int my_color, char *eval_str);
+int cpu_get_move(int level, board_t *b, int my_color, char *eval_str);
+int oldb_get_move(int level, board_t *b, int my_color, char *eval_str);
 
 //
 // inline procedures

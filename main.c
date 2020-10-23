@@ -16,9 +16,6 @@
 #define DEFAULT_LINUX_WIN_WIDTH    1500
 #define DEFAULT_LINUX_WIN_HEIGHT    800
 
-#define MAX_AVAIL_PLAYERS         (sizeof(avail_players) / sizeof(avail_players[0]))
-#define MAX_TOURNAMENT_PLAYERS    (sizeof(tournament_players) / sizeof(tournament_players[0]))
-
 #define GAME_STATE_RESET         0
 #define GAME_STATE_ACTIVE        1
 #define GAME_STATE_COMPLETE      2
@@ -65,6 +62,12 @@ typedef struct {
     unsigned char    highlight[10][10];
 } game_moves_t;
 
+typedef struct {
+    int (*get_move)(int level, board_t *b, int my_color, char *eval_str);
+    int   level;
+    char  name[100];
+} player_t;
+
 //
 // variables
 //
@@ -80,18 +83,12 @@ static int                 max_game_moves;
 
 static player_t           *player_black;
 static player_t           *player_white;
-static player_t           *avail_players[] = 
-                            { &human, 
-                              &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, &CPU6, &CPU7, &CPU8, };
+static player_t           *avail_players[100];
+static int                 max_avail_players;
 
 static tournament_t        tournament;
-#ifndef ANDROID
-static player_t           *tournament_players[] = 
-                            { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, &CPU6, &CPU7, &CPU8, };
-#else
-static player_t           *tournament_players[] = 
-                            { &CPU1, &CPU2, &CPU3, &CPU4, &CPU5, &CPU6, };
-#endif
+static player_t           *tournament_players[100];
+static int                 max_tournament_players;
 
 static config_t            config[] = { { "player_black_idx",   "0" },
                                         { "player_white_idx",   "5" },
@@ -115,9 +112,12 @@ static int pane_hndlr(pane_cx_t *pane_cx, int request, void * init_params, sdl_e
 
 int main(int argc, char **argv)
 {
-    bool fullscreen = false;
+    #define CPU_PLAYER(lvl) &(player_t){cpu_get_move, lvl, "CPU" #lvl}
+    #define OLDB_PLAYER(lvl) &(player_t){oldb_get_move, lvl, "OLDB" #lvl}
+
+    bool          fullscreen = false;
     unsigned char opt_char;
-    pthread_t tid;
+    pthread_t     tid;
 
     INFO("STARTING version=%s\n", version);
 
@@ -138,6 +138,27 @@ int main(int argc, char **argv)
         }
     }
 
+    // init array of available players
+    avail_players[0] = &(player_t){human_get_move, 0, "HUMAN"};
+    avail_players[1] = CPU_PLAYER(1);
+    avail_players[2] = CPU_PLAYER(2);
+    avail_players[3] = CPU_PLAYER(3);
+    avail_players[4] = CPU_PLAYER(4);
+    avail_players[5] = CPU_PLAYER(5);
+    avail_players[6] = CPU_PLAYER(6);
+    avail_players[7] = CPU_PLAYER(7);
+    avail_players[8] = CPU_PLAYER(8);
+    max_avail_players = 9;
+
+    // init array of tournament mode players
+    tournament_players[0] = CPU_PLAYER(4);
+    tournament_players[1] = OLDB_PLAYER(4);
+    tournament_players[2] = CPU_PLAYER(5);
+    tournament_players[3] = OLDB_PLAYER(5);
+    tournament_players[4] = CPU_PLAYER(6);
+    tournament_players[5] = OLDB_PLAYER(6);
+    max_tournament_players = 6;
+
     // read configuration file, and print values
     if (config_read(CONFIG_FILENAME, config, CONFIG_VERSION) < 0) {
         FATAL("config_read failed\n");
@@ -146,7 +167,7 @@ int main(int argc, char **argv)
     INFO("CONFIG_PLAYER_WHITE_IDX_STR = %s\n", CONFIG_PLAYER_WHITE_IDX_STR);
     INFO("CONFIG_SHOW_MOVE_YN         = %c\n", CONFIG_SHOW_MOVE_YN);
     INFO("CONFIG_SHOW_EVAL_YN         = %c\n", CONFIG_SHOW_EVAL_YN);
-
+    
     // create game_thread, and
     // wait for player_black and player_white to be initialized by the game_thread
     pthread_create(&tid, NULL, game_thread, NULL);
@@ -242,7 +263,8 @@ again:
         // this may also set game_moves[].eval_str field, which is set by
         //  code in cpu.c when cpu is playing human, the eval_str is 
         //  displayed when displaying it is enabled
-        move = player->get_move(&game_moves[max_game_moves-1].board, 
+        move = player->get_move(player->level,
+                                &game_moves[max_game_moves-1].board, 
                                 whose_turn, 
                                 game_moves[max_game_moves-1].eval_str);
 
@@ -325,10 +347,10 @@ static void game_mode_get_players(player_t **pb, player_t **pw)
         FATAL("config idx str invalid\n");
     }
 
-    if (pbidx < 0 || pbidx >= MAX_AVAIL_PLAYERS) {
+    if (pbidx < 0 || pbidx >= max_avail_players) {
         FATAL("config pbidx %d invalid\n", pbidx);
     }
-    if (pwidx < 0 || pwidx >= MAX_AVAIL_PLAYERS) {
+    if (pwidx < 0 || pwidx >= max_avail_players) {
         FATAL("config pwidx %d invalid\n", pwidx);
     }
 
@@ -339,8 +361,8 @@ static void game_mode_get_players(player_t **pb, player_t **pw)
 static void tournament_get_players(player_t **pb, player_t **pw)
 {
     do {
-        tournament.pb_idx = (tournament.select_idx / MAX_TOURNAMENT_PLAYERS) % MAX_TOURNAMENT_PLAYERS;
-        tournament.pw_idx = (tournament.select_idx % MAX_TOURNAMENT_PLAYERS);
+        tournament.pb_idx = (tournament.select_idx / max_tournament_players) % max_tournament_players;
+        tournament.pw_idx = (tournament.select_idx % max_tournament_players);
         tournament.select_idx++;
     } while (tournament.pb_idx == tournament.pw_idx);
 
@@ -536,7 +558,7 @@ bool move_cancelled(void)
 #define SDL_EVENT_HUMAN_MOVE_SELECT       (SDL_EVENT_USER_DEFINED + 29)   // length 100
 
 // game mode, choose player events
-#define SDL_EVENT_CHOOSE_PLAYER_SELECT    (SDL_EVENT_USER_DEFINED + 140)   // legnth MAX_AVAIL_PLAYERS
+#define SDL_EVENT_CHOOSE_PLAYER_SELECT    (SDL_EVENT_USER_DEFINED + 140)   // legnth max_avail_players
 
 //
 // variables
@@ -853,7 +875,7 @@ static void render_game_choose_player_mode(pane_cx_t *pane_cx)
 
     render_board(pane_cx);
 
-    for (i = 0; i < MAX_AVAIL_PLAYERS; i++) {
+    for (i = 0; i < max_avail_players; i++) {
         register_event(pane_cx, 
                        (i/2) * 2,            // row
                        (i%2) * (CTL_COLS/2), // col
@@ -866,10 +888,9 @@ static int event_game_choose_player_mode(pane_cx_t *pane_cx, sdl_event_t *event)
 {
     int rc = PANE_HANDLER_RET_DISPLAY_REDRAW;
 
-    switch (event->event_id) {
-
-    // game mode, choose player events
-    case SDL_EVENT_CHOOSE_PLAYER_SELECT ... SDL_EVENT_CHOOSE_PLAYER_SELECT+MAX_AVAIL_PLAYERS-1: {
+    if ((event->event_id >= SDL_EVENT_CHOOSE_PLAYER_SELECT) &&
+        (event->event_id <= SDL_EVENT_CHOOSE_PLAYER_SELECT+max_avail_players-1))
+    {
         int idx = event->event_id - SDL_EVENT_CHOOSE_PLAYER_SELECT;
         if (choose_player_mode == BLACK) {
             sprintf(CONFIG_PLAYER_BLACK_IDX_STR, "%d", idx);
@@ -879,7 +900,6 @@ static int event_game_choose_player_mode(pane_cx_t *pane_cx, sdl_event_t *event)
             config_write();
         }
         choose_player_mode = NONE;
-        break; }
     }
 
     return rc;
@@ -900,7 +920,7 @@ static void render_tournament_mode(pane_cx_t *pane_cx)
 
     // print tournament mode status
     print(pane_cx, 1.5, 0, "%5s vs %s", player_black->name, player_white->name);
-    for (i = 0; i < MAX_TOURNAMENT_PLAYERS; i++) {
+    for (i = 0; i < max_tournament_players; i++) {
         print(pane_cx, 3+i, 0, 
               "%5s : %3.0f %%",
               tournament_players[i]->name,

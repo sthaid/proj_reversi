@@ -24,7 +24,7 @@ static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possi
 
 // -----------------  CPU PLAYER - GET_MOVE ---------------------------------
 
-int cpu_get_move(int level, board_t *b, int my_color, char *eval_str)
+int oldb_get_move(int level, board_t *b, int my_color, char *eval_str)
 {
     int move, value, depth;
 
