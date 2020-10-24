@@ -26,16 +26,23 @@ static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possi
 
 int cpu_get_move(int level, board_t *b, int my_color, char *eval_str)
 {
-    int move, value, depth;
+    int    move, value, depth, piececnt;
+    double M, B;
 
-    static int max_depth[9] = {0,  1,  2,  3,  4,  5,  6,  7,  8 };
-    static int piececnt[9]  = {0, 55, 54, 53, 52, 51, 50, 49, 48 };
+    static int MIN_DEPTH[9] =               {0,  1,  2,  3,  4,  5,  6,  7,  8 };
+    static int PIECECNT_FOR_EOG_DEPTH[9]  = {0, 56, 55, 54, 53, 52, 51, 50, 49 };
 
     if (level < 1 || level > 8) {
         FATAL("invlaid level %d\n", level);
     }
 
-    depth = (b->black_cnt + b->white_cnt > (piececnt[level]) ? 100 : (max_depth[level]));
+    // xxx comments
+
+    piececnt = b->black_cnt + b->white_cnt;
+    M = 1.0;
+    B = (64 - PIECECNT_FOR_EOG_DEPTH[level]) - M * PIECECNT_FOR_EOG_DEPTH[level];
+    depth = rint(M * piececnt + B);
+    if (depth < MIN_DEPTH[level]) depth = MIN_DEPTH[level];
 
     maximizing_color = my_color;
     heuristic = heuristic_a;

@@ -148,16 +148,21 @@ int main(int argc, char **argv)
     avail_players[6] = CPU_PLAYER(6);
     avail_players[7] = CPU_PLAYER(7);
     avail_players[8] = CPU_PLAYER(8);
-    max_avail_players = 9;
+    avail_players[9] = OLDB_PLAYER(8);  //XXX
+    max_avail_players = 10;  //XXX
 
     // init array of tournament mode players
-    tournament_players[0] = CPU_PLAYER(4);
-    tournament_players[1] = OLDB_PLAYER(4);
-    tournament_players[2] = CPU_PLAYER(5);
-    tournament_players[3] = OLDB_PLAYER(5);
-    tournament_players[4] = CPU_PLAYER(6);
-    tournament_players[5] = OLDB_PLAYER(6);
-    max_tournament_players = 6;
+    tournament_players[0] = CPU_PLAYER(2);
+    tournament_players[1] = OLDB_PLAYER(2);
+    tournament_players[2] = CPU_PLAYER(3);
+    tournament_players[3] = OLDB_PLAYER(3);
+    tournament_players[4] = CPU_PLAYER(4);
+    tournament_players[5] = OLDB_PLAYER(4);
+    tournament_players[6] = CPU_PLAYER(5);
+    tournament_players[7] = OLDB_PLAYER(5);
+    tournament_players[8] = CPU_PLAYER(6);
+    tournament_players[9] = OLDB_PLAYER(6);
+    max_tournament_players = 10;
 
     // read configuration file, and print values
     if (config_read(CONFIG_FILENAME, config, CONFIG_VERSION) < 0) {
