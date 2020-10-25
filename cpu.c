@@ -11,7 +11,6 @@
 // variables
 //
 
-static int maximizing_color;
 static int (*heuristic)(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm);
 
 //
@@ -24,7 +23,7 @@ static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possi
 
 // -----------------  CPU PLAYER - GET_MOVE ---------------------------------
 
-int cpu_get_move(int level, board_t *b, int my_color, char *eval_str)
+int cpu_get_move(int level, board_t *b, char *eval_str)
 {
     int    move, value, depth, piececnt;
     double M, B;
@@ -44,7 +43,6 @@ int cpu_get_move(int level, board_t *b, int my_color, char *eval_str)
     depth = rint(M * piececnt + B);
     if (depth < MIN_DEPTH[level]) depth = MIN_DEPTH[level];
 
-    maximizing_color = my_color;
     heuristic = heuristic_a;
     value = alphabeta(b, depth, -INFIN, +INFIN, true, &move);
 
@@ -81,13 +79,11 @@ static void create_eval_str(int eval_int, char *eval_str)
 
 static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing_player, int *move)
 {
-    #define CHILD(i) \
+    #define CHILD(mv) \
         ({ b_child = *b; \
-           apply_move(&b_child, my_color, pm.move[i], NULL); \
+           apply_move(&b_child, mv, NULL); \
            &b_child; })
 
-    int              my_color    = (maximizing_player ? maximizing_color : OTHER_COLOR(maximizing_color));
-    int              other_color = OTHER_COLOR(my_color);
     int              i, value, v, best_move = MOVE_NONE;
     board_t          b_child;
     bool             game_over;
@@ -117,10 +113,10 @@ static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing
         game_over = true;
         pm.max = 0;
     } else {
-        get_possible_moves(b, my_color, &pm);
+        get_possible_moves(b, &pm);
         if (pm.max == 0) {
             possible_moves_t other_pm;
-            get_possible_moves(b, other_color, &other_pm);
+            get_possible_moves(CHILD(MOVE_PASS), &other_pm);
             game_over = (other_pm.max == 0);
             if (!game_over) {
                 pm.max = 1;
@@ -143,7 +139,7 @@ static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing
     if (maximizing_player) {
         value = -INFIN;
         for (i = 0; i < pm.max; i++) {
-            if ((v = alphabeta(CHILD(i), depth-1, alpha, beta, false, NULL)) > value) {
+            if ((v = alphabeta(CHILD(pm.move[i]), depth-1, alpha, beta, false, NULL)) > value) {
                 value = v;
                 best_move = pm.move[i];
             }
@@ -155,7 +151,7 @@ static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing
     } else {
         value = +INFIN;
         for (i = 0; i < pm.max; i++) {
-            if ((v = alphabeta(CHILD(i), depth-1, alpha, beta, true, NULL)) < value) {
+            if ((v = alphabeta(CHILD(pm.move[i]), depth-1, alpha, beta, true, NULL)) < value) {
                 value = v;
                 best_move = pm.move[i];
             }
@@ -201,7 +197,7 @@ static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possi
     int piece_cnt_diff;
     int corner_cnt_my_color = 0, corner_cnt_other_color = 0;
     int gateway_cnt_my_color = 0, gateway_cnt_other_color = 0;
-    int my_color = (maximizing_player ? maximizing_color : OTHER_COLOR(maximizing_color));
+    int my_color = b->whose_turn;
 
     if (game_over) {
         // the game is over, return a large positive or negative value, 
@@ -247,3 +243,136 @@ static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possi
     // for the maximizing player
     return (maximizing_player ? value : -value);
 }
+
+#if 0
+// --------------------------------------------------------------------------
+// -----------------  BOOK MOVE GENERATOR  ----------------------------------
+// --------------------------------------------------------------------------
+
+XXX add whose_move to board
+
+main
+{
+    book_move_file_read
+
+    pthread_create
+
+    wait for terminate
+}
+
+thread
+{
+    for (i = 0; i < 10; i++) {
+        generate_book_moves(&b, i);
+    }
+}
+
+generate_book_moves(board_t *b, int depth)
+{
+    if (depth == 0) {
+        book_move = get_book_move(b);
+        if (book_move != -1) {
+            return;
+        }
+
+        add_board_to_book_move_tbl with move==0, and save tblidx
+
+        drop mutex
+        alpha_beta
+        acquire mutes
+
+        update book move tbl with real move
+        write to file
+        return
+    }
+
+    get possible moves
+    for (i = 0; i < pm.max) {
+        create child board
+        generate_book_moves(child, depth-1);
+    }
+}
+
+
+book_move_file_read
+{
+    open file   ALSO create
+    read records,    validate MAGIC
+    add entries to hash tbl
+    close file
+}
+
+book_move_file_append_new_entry
+{
+    open for append
+    write
+    close
+}
+
+
+
+get_book_move(board_t *b)
+{
+    compress board
+
+    hash_idx =func(compressed_board)
+
+    search across for matching b
+
+    if not found return -1
+
+    return the move
+}    
+
+    search bm_hash_tbl for matching crc, or 0
+    if no matching, then return -1
+
+    if 
+}
+
+
+
+
+http://home.thep.lu.se/~bjorn/crc/crc32_simple.c
+/* Simple public domain implementation of the standard CRC32 checksum.
+ * Outputs the checksum for each file given as a command line argument.
+ * Invalid file names and files that cause errors are silently skipped.
+ * The program reads from stdin if it is called with no arguments. */
+
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+uint32_t crc32_for_byte(uint32_t r) {
+  for(int j = 0; j < 8; ++j)
+    r = (r & 1? 0: (uint32_t)0xEDB88320L) ^ r >> 1;
+  return r ^ (uint32_t)0xFF000000L;
+}
+
+void crc32(const void *data, size_t n_bytes, uint32_t* crc) {
+  static uint32_t table[0x100];
+  if(!*table)
+    for(size_t i = 0; i < 0x100; ++i)
+      table[i] = crc32_for_byte(i);
+  for(size_t i = 0; i < n_bytes; ++i)
+    *crc = table[(uint8_t)*crc ^ ((uint8_t*)data)[i]] ^ *crc >> 8;
+}
+
+int main(int ac, char** av) {
+  FILE *fp;
+  char buf[1L << 15];
+  for(int i = ac > 1; i < ac; ++i)
+    if((fp = i? fopen(av[i], "rb"): stdin)) { 
+      uint32_t crc = 0;
+      while(!feof(fp) && !ferror(fp))
+	crc32(buf, fread(buf, 1, sizeof(buf), fp), &crc);
+      if(!ferror(fp))
+	printf("%08x%s%s\n", crc, ac > 2? "\t": "", ac > 2? av[i]: "");
+      if(i)
+	fclose(fp);
+    }
+  return 0;
+}
+
+
+#endif

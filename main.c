@@ -63,7 +63,7 @@ typedef struct {
 } game_moves_t;
 
 typedef struct {
-    int (*get_move)(int level, board_t *b, int my_color, char *eval_str);
+    int (*get_move)(int level, board_t *b, char *eval_str);
     int   level;
     char  name[100];
 } player_t;
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
     max_avail_players = 10;  //XXX
 
     // init array of tournament mode players
-#if 0  // XXX
+#if 1  // XXX
     tournament_players[0] = CPU_PLAYER(2);
     tournament_players[1] = OLDB_PLAYER(2);
     tournament_players[2] = CPU_PLAYER(3);
@@ -163,7 +163,7 @@ int main(int argc, char **argv)
     tournament_players[7] = OLDB_PLAYER(5);
     tournament_players[8] = CPU_PLAYER(6);
     tournament_players[9] = OLDB_PLAYER(6);
-    max_tournament_players = 10;
+    max_tournament_players = 8;
 #else
     tournament_players[0] = CPU_PLAYER(7);
     tournament_players[1] = CPU_PLAYER(8);
@@ -209,19 +209,20 @@ int main(int argc, char **argv)
 
 static void *game_thread(void *cx)
 {
-    int  move, whose_turn;
+    int  move;
     bool tournament_game;
     player_t *player;
 
 restart:
     // init the first game_move, including the starting board 
     memset(game_moves, 0, sizeof(game_moves));
-    game_moves[0].board.pos[4][4] = WHITE;
-    game_moves[0].board.pos[4][5] = BLACK;
-    game_moves[0].board.pos[5][4] = BLACK;
-    game_moves[0].board.pos[5][5] = WHITE;
-    game_moves[0].board.black_cnt = 2;
-    game_moves[0].board.white_cnt = 2;
+    game_moves[0].board.pos[4][4]  = WHITE;
+    game_moves[0].board.pos[4][5]  = BLACK;
+    game_moves[0].board.pos[5][4]  = BLACK;
+    game_moves[0].board.pos[5][5]  = WHITE;
+    game_moves[0].board.black_cnt  = 2;
+    game_moves[0].board.white_cnt  = 2;
+    game_moves[0].board.whose_turn = NONE;
     max_game_moves = 1;
 
     // the game state is now GAME_STATE_RESET
@@ -259,27 +260,26 @@ restart:
     while (true) {
 again:
         // determine whose turn it is
-        whose_turn = (max_game_moves & 1) ? BLACK : WHITE;
-        player = (whose_turn == BLACK ? player_black : player_white);
+        game_moves[max_game_moves-1].board.whose_turn = (max_game_moves & 1) ? BLACK : WHITE;
+        player = (game_moves[max_game_moves-1].board.whose_turn == BLACK ? player_black : player_white);
 
         // set game_moves fields:
         // - player_is_human, and
         // - possible_moves 
         // these fields are used by the display code
         game_moves[max_game_moves-1].player_is_human = (strcasecmp(player->name, "human") == 0);
-        get_possible_moves(&game_moves[max_game_moves-1].board, whose_turn, 
+        get_possible_moves(&game_moves[max_game_moves-1].board, 
                            &game_moves[max_game_moves-1].possible_moves);  
 
         // get move by calling player->get_move; 
         // this may also set game_moves[].eval_str field, which is set by
         //  code in cpu.c when cpu is playing human, the eval_str is 
         //  displayed when displaying it is enabled
-        unsigned long move_start_us = microsec_timer(); //xxx
+        //unsigned long move_start_us = microsec_timer(); //xxx
         move = player->get_move(player->level,
                                 &game_moves[max_game_moves-1].board, 
-                                whose_turn, 
                                 game_moves[max_game_moves-1].eval_str);
-        INFO("MOVE DURATION = %0.1f secs\n", (microsec_timer() - move_start_us) / 1000000.);
+        //INFO("MOVE DURATION = %0.1f secs\n", (microsec_timer() - move_start_us) / 1000000.);
 
         // if move returned is MOVE_GAME_OVER then break out of the game play loop
         if (move == MOVE_GAME_OVER) {
@@ -322,7 +322,8 @@ again:
         strcpy(game_moves[max_game_moves].eval_str, game_moves[max_game_moves-1].eval_str);
         max_game_moves++;
 
-        apply_move(&game_moves[max_game_moves-1].board, whose_turn, move, 
+        apply_move(&game_moves[max_game_moves-1].board, 
+                   move, 
                    (CONFIG_SHOW_MOVE_YN == 'Y' && !tournament_game 
                     ? game_moves[max_game_moves-1].highlight : NULL));
     }
@@ -403,18 +404,21 @@ static void tournament_tally_game_result(void)
 static int r_incr_tbl[8] = {0, -1, -1, -1,  0,  1, 1, 1};
 static int c_incr_tbl[8] = {1,  1,  0, -1, -1, -1, 0, 1};
 
-void  apply_move(board_t *b, int my_color, int move, unsigned char highlight[][10])
+void  apply_move(board_t *b, int move, unsigned char highlight[][10])
 {
-    int  r, c, i, j, other_color;
+    int  r, c, i, j, my_color, other_color;
     int *my_color_cnt, *other_color_cnt;
     bool succ;
 
     if (move == MOVE_PASS) {
+        b->whose_turn = OTHER_COLOR(b->whose_turn);
         return;
     }
 
-    succ = false;
+    my_color = b->whose_turn;
     other_color = OTHER_COLOR(my_color);
+
+    succ = false;
     MOVE_TO_RC(move, r, c);
     if (b->pos[r][c] != NONE) {
         FATAL("pos[%d][%d] = %d\n", r, c, b->pos[r][c]);
@@ -467,23 +471,27 @@ void  apply_move(board_t *b, int my_color, int move, unsigned char highlight[][1
         }
     }
 
+    if (!succ) {
+        FATAL("invalid call to apply_move, move=%d\n", move);
+    }
+
     if (highlight) {
         sleep(1);
         memset(highlight, 0, MEMBER_SIZE(game_moves_t,highlight));
     }
 
-    if (!succ) {
-        FATAL("invalid call to apply_move, move=%d\n", move);
-    }
+    b->whose_turn = OTHER_COLOR(b->whose_turn);
 }
 
-void get_possible_moves(board_t *b, int my_color, possible_moves_t *pm)
+void get_possible_moves(board_t *b, possible_moves_t *pm)
 {
-    int r, c, i, other_color, move;
+    int r, c, i, my_color, other_color, move;
+
+    my_color = b->whose_turn;
+    other_color = OTHER_COLOR(my_color);
 
     pm->max = 0;
     pm->color = my_color;
-    other_color = OTHER_COLOR(my_color);
 
     for (r = 1; r <= 8; r++) {
         for (c = 1; c <= 8; c++) {
@@ -789,15 +797,12 @@ static void render_game_mode(pane_cx_t *pane_cx)
         register_event(pane_cx, 5.5, 2, SDL_EVENT_CHOOSE_WHITE_PLAYER, " %s", player_white->name);
     } else {
         board_t *b = &game_moves[max_game_moves-1].board;
-        int whose_turn = ((game_state != GAME_STATE_ACTIVE) ? NONE  :
-                          (max_game_moves & 1)              ? BLACK : 
-                                                              WHITE);
         print(pane_cx, 4, 2, "%c%-5s %2d", 
-              whose_turn == BLACK ? '*' : ' ',
+              b->whose_turn == BLACK ? '*' : ' ',
               player_black->name,
               b->black_cnt);
         print(pane_cx, 5.5, 2, "%c%-5s %2d", 
-              whose_turn == WHITE ? '*' : ' ',
+              b->whose_turn == WHITE ? '*' : ' ',
               player_white->name,
               b->white_cnt);
     }

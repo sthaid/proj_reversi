@@ -24,7 +24,7 @@ static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possi
 
 // -----------------  CPU PLAYER - GET_MOVE ---------------------------------
 
-int oldb_get_move(int level, board_t *b, int my_color, char *eval_str)
+int oldb_get_move(int level, board_t *b, char *eval_str)
 {
     int move, value, depth;
 
@@ -37,7 +37,7 @@ int oldb_get_move(int level, board_t *b, int my_color, char *eval_str)
 
     depth = (b->black_cnt + b->white_cnt > (piececnt[level]) ? 100 : (max_depth[level]));
 
-    maximizing_color = my_color;
+    maximizing_color = b->whose_turn;
     heuristic = heuristic_a;
     value = alphabeta(b, depth, -INFIN, +INFIN, true, &move);
 
@@ -74,13 +74,11 @@ static void create_eval_str(int eval_int, char *eval_str)
 
 static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing_player, int *move)
 {
-    #define CHILD(i) \
+    #define CHILD(mv) \
         ({ b_child = *b; \
-           apply_move(&b_child, my_color, pm.move[i], NULL); \
+           apply_move(&b_child, mv, NULL); \
            &b_child; })
 
-    int              my_color    = (maximizing_player ? maximizing_color : OTHER_COLOR(maximizing_color));
-    int              other_color = OTHER_COLOR(my_color);
     int              i, value, v, best_move = MOVE_NONE;
     board_t          b_child;
     bool             game_over;
@@ -110,10 +108,10 @@ static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing
         game_over = true;
         pm.max = 0;
     } else {
-        get_possible_moves(b, my_color, &pm);
+        get_possible_moves(b, &pm);
         if (pm.max == 0) {
             possible_moves_t other_pm;
-            get_possible_moves(b, other_color, &other_pm);
+            get_possible_moves(CHILD(MOVE_PASS), &other_pm);
             game_over = (other_pm.max == 0);
             if (!game_over) {
                 pm.max = 1;
@@ -136,7 +134,7 @@ static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing
     if (maximizing_player) {
         value = -INFIN;
         for (i = 0; i < pm.max; i++) {
-            if ((v = alphabeta(CHILD(i), depth-1, alpha, beta, false, NULL)) > value) {
+            if ((v = alphabeta(CHILD(pm.move[i]), depth-1, alpha, beta, false, NULL)) > value) {
                 value = v;
                 best_move = pm.move[i];
             }
@@ -148,7 +146,7 @@ static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing
     } else {
         value = +INFIN;
         for (i = 0; i < pm.max; i++) {
-            if ((v = alphabeta(CHILD(i), depth-1, alpha, beta, true, NULL)) < value) {
+            if ((v = alphabeta(CHILD(pm.move[i]), depth-1, alpha, beta, true, NULL)) < value) {
                 value = v;
                 best_move = pm.move[i];
             }

@@ -2,20 +2,26 @@
 
 // -----------------  HUMAN PLAYER - GET_MOVE -------------------------------
 
-int human_get_move(int level, board_t *b, int my_color, char *eval_str)
+int human_get_move(int level, board_t *b, char *eval_str)
 {
+    #define CHILD(mv) \
+        ({ b_child = *b; \
+           apply_move(&b_child, mv, NULL); \
+           &b_child; })
+
     bool             valid_move;
     possible_moves_t pm;
     int              move;
     int              i;
+    board_t          b_child;
 
     // get possible moves
-    get_possible_moves(b, my_color, &pm);
+    get_possible_moves(b, &pm);
 
     // if no possible moves and other color has no moves then return GAME_OVER
     if (pm.max == 0) {
         possible_moves_t other_pm;
-        get_possible_moves(b, OTHER_COLOR(my_color), &other_pm);
+        get_possible_moves(CHILD(MOVE_PASS), &other_pm);
         if (other_pm.max == 0) {
             return MOVE_GAME_OVER;
         }

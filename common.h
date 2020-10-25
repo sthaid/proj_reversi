@@ -67,6 +67,7 @@ typedef struct {
     unsigned char pos[10][10];
     int black_cnt;
     int white_cnt;
+    int whose_turn;
 } board_t;
 
 typedef struct {
@@ -88,13 +89,13 @@ extern char *version;
 // prototypes
 //
 
-void apply_move(board_t *b, int my_color, int move, unsigned char highlight[][10]);
-void get_possible_moves(board_t *b, int my_color, possible_moves_t *pm);
+void apply_move(board_t *b, int move, unsigned char highlight[][10]);
+void get_possible_moves(board_t *b, possible_moves_t *pm);
 bool move_cancelled(void);
 
-int human_get_move(int level, board_t *b, int my_color, char *eval_str);
-int cpu_get_move(int level, board_t *b, int my_color, char *eval_str);
-int oldb_get_move(int level, board_t *b, int my_color, char *eval_str);
+int human_get_move(int level, board_t *b, char *eval_str);
+int cpu_get_move(int level, board_t *b, char *eval_str);
+int oldb_get_move(int level, board_t *b, char *eval_str);
 
 //
 // inline procedures
