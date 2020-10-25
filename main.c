@@ -152,6 +152,7 @@ int main(int argc, char **argv)
     max_avail_players = 10;  //XXX
 
     // init array of tournament mode players
+#if 0  // XXX
     tournament_players[0] = CPU_PLAYER(2);
     tournament_players[1] = OLDB_PLAYER(2);
     tournament_players[2] = CPU_PLAYER(3);
@@ -163,6 +164,11 @@ int main(int argc, char **argv)
     tournament_players[8] = CPU_PLAYER(6);
     tournament_players[9] = OLDB_PLAYER(6);
     max_tournament_players = 10;
+#else
+    tournament_players[0] = CPU_PLAYER(7);
+    tournament_players[1] = CPU_PLAYER(8);
+    max_tournament_players = 2;
+#endif
 
     // read configuration file, and print values
     if (config_read(CONFIG_FILENAME, config, CONFIG_VERSION) < 0) {
@@ -268,10 +274,12 @@ again:
         // this may also set game_moves[].eval_str field, which is set by
         //  code in cpu.c when cpu is playing human, the eval_str is 
         //  displayed when displaying it is enabled
+        unsigned long move_start_us = microsec_timer(); //xxx
         move = player->get_move(player->level,
                                 &game_moves[max_game_moves-1].board, 
                                 whose_turn, 
                                 game_moves[max_game_moves-1].eval_str);
+        INFO("MOVE DURATION = %0.1f secs\n", (microsec_timer() - move_start_us) / 1000000.);
 
         // if move returned is MOVE_GAME_OVER then break out of the game play loop
         if (move == MOVE_GAME_OVER) {
@@ -318,9 +326,7 @@ again:
                    (CONFIG_SHOW_MOVE_YN == 'Y' && !tournament_game 
                     ? game_moves[max_game_moves-1].highlight : NULL));
     }
-    unsigned long end_us = microsec_timer();  // xxx
-    INFO("DURATION = %0.1f secs\n",
-        (end_us - start_us) / 1000000.);
+    INFO("GAME DURATION = %0.1f secs\n", (microsec_timer() - start_us) / 1000000.);
 
     // game is over
     game_state = GAME_STATE_COMPLETE;
