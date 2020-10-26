@@ -11,6 +11,7 @@ SRC_REVERSI = main.c \
               human.c \
               cpu.c \
               oldb.c \
+              game_utils.c \
               util/util_misc.c \
               util/util_sdl.c \
               util/util_jpeg.c \

@@ -35,16 +35,17 @@
         (r) = (m) / 10; \
         (c) = (m) % 10; \
     } while (0)
+
 #define RC_TO_MOVE(r,c,m) \
     do { \
         (m) = ((r) * 10) + (c); \
     } while (0)
 
-#define MS 1000L
-
 #define OTHER_COLOR(c) ((c) == WHITE ? BLACK : \
                         (c) == BLACK ? WHITE : \
                                        ({FATAL("OTHER_COLOR c=%d\n", c);0;}))
+
+#define MS 1000L
 
 #define SWAP(a,b) \
     do { \
@@ -54,10 +55,7 @@
         (b) = temp;  \
     } while (0)
 
-#define WINNER_STR(b) \
-    ((b)->black_cnt == (b)->white_cnt ? "TIE"        : \
-     (b)->black_cnt >  (b)->white_cnt ? "BLACK-WINS" : \
-                                        "WHITE-WINS")
+#define MEMBER_SIZE(type, member) sizeof(((type *)0)->member)
 
 //
 // typedefs
