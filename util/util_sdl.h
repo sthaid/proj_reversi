@@ -10,17 +10,17 @@
 //
 
 // colors
-#define PURPLE     0 
-#define BLUE       1
-#define LIGHT_BLUE 2
-#define GREEN      3
-#define YELLOW     4
-#define ORANGE     5
-#define PINK       6
-#define RED        7
-#define GRAY       8
-#define WHITE      9
-#define BLACK      10
+#define SDL_PURPLE     0 
+#define SDL_BLUE       1
+#define SDL_LIGHT_BLUE 2
+#define SDL_GREEN      3
+#define SDL_YELLOW     4
+#define SDL_ORANGE     5
+#define SDL_PINK       6
+#define SDL_RED        7
+#define SDL_GRAY       8
+#define SDL_WHITE      9
+#define SDL_BLACK      10
 
 // pixels
 #define BYTES_PER_PIXEL  4

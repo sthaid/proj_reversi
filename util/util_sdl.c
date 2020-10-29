@@ -228,9 +228,9 @@ int32_t sdl_init(int32_t *w, int32_t *h, bool fullscreen, bool resizeable, bool 
     // if caller requests swap_white_black then swap the white and black
     // entries of the sdl_color_to_rgba table
     if (swap_white_black) {
-        uint32_t tmp = sdl_color_to_rgba[WHITE];
-        sdl_color_to_rgba[WHITE] = sdl_color_to_rgba[BLACK];
-        sdl_color_to_rgba[BLACK] = tmp;
+        uint32_t tmp = sdl_color_to_rgba[SDL_WHITE];
+        sdl_color_to_rgba[SDL_WHITE] = sdl_color_to_rgba[SDL_BLACK];
+        sdl_color_to_rgba[SDL_BLACK] = tmp;
     }
 
     // register exit handler
@@ -404,7 +404,7 @@ void sdl_pane_manager(void *display_cx,                        // optional, cont
 
             pane_cx->pane = init_pane(pane_cx->x_disp, pane_cx->y_disp, pane_cx->w_total, pane_cx->h_total,
                                       pane_cx->border_style, 
-                                      pane_cx == FG_PANE_CX ? GREEN : BLUE,  
+                                      pane_cx == FG_PANE_CX ? SDL_GREEN : SDL_BLUE,  
                                       true,   // clear
                                       &loc_full_pane, &loc_bar_move, &loc_bar_terminate);
 
@@ -657,11 +657,11 @@ rect_t init_pane(int32_t x_disp, int32_t y_disp, int32_t w_total, int32_t h_tota
                         PANE_BAR_TERMINATE_WIDTH, PANE_BAR_HEIGHT-2*PANE_BORDER_WIDTH};
 
         if (clear) {
-            sdl_render_fill_rect(&pane, &locf, BLACK);
+            sdl_render_fill_rect(&pane, &locf, SDL_BLACK);
         }
         sdl_render_rect(&pane, &locf, PANE_BORDER_WIDTH, border_color);
         sdl_render_fill_rect(&pane, &locb, border_color);
-        sdl_render_fill_rect(&pane, &locbt, RED);
+        sdl_render_fill_rect(&pane, &locbt, SDL_RED);
 
         *loc_full_pane = locf;
         *loc_bar_move = locbm;
@@ -676,7 +676,7 @@ rect_t init_pane(int32_t x_disp, int32_t y_disp, int32_t w_total, int32_t h_tota
         rect_t locf  = {-PANE_BORDER_WIDTH, -PANE_BORDER_WIDTH, w_total, h_total};   // full
 
         if (clear) {
-            sdl_render_fill_rect(&pane, &locf, BLACK);
+            sdl_render_fill_rect(&pane, &locf, SDL_BLACK);
         }
         sdl_render_rect(&pane, &locf, PANE_BORDER_WIDTH, border_color);
 
@@ -692,7 +692,7 @@ rect_t init_pane(int32_t x_disp, int32_t y_disp, int32_t w_total, int32_t h_tota
         rect_t locf  = {0, 0, w_total, h_total};   // full
 
         if (clear) {
-            sdl_render_fill_rect(&pane, &locf, BLACK);
+            sdl_render_fill_rect(&pane, &locf, SDL_BLACK);
         }
 
         *loc_full_pane = locf;
@@ -732,7 +732,7 @@ void sdl_display_init(int32_t * win_width, int32_t * win_height, bool * win_mini
 {
     sdl_event_max = 0;
 
-    set_color(BLACK);
+    set_color(SDL_BLACK);
     SDL_RenderClear(sdl_renderer);
 
     if (win_width) {
@@ -2206,7 +2206,7 @@ void sdl_print_screen(char *file_name, bool flash_display, rect_t * rect_arg)
     // it worked, flash display if enabled;
     // the caller must redraw the screen if flash_display is enabled
     if (flash_display) {
-        set_color(WHITE);
+        set_color(SDL_WHITE);
         SDL_RenderClear(sdl_renderer);
         SDL_RenderPresent(sdl_renderer);
         usleep(250000);
@@ -2299,17 +2299,17 @@ int32_t sdl_color(char * color_str)
         char * name;
         int32_t id;
     } colors[] = {
-        { "PURPLE",     PURPLE     },
-        { "BLUE",       BLUE       },
-        { "LIGHT_BLUE", LIGHT_BLUE },
-        { "GREEN",      GREEN      },
-        { "YELLOW",     YELLOW     },
-        { "ORANGE",     ORANGE     },
-        { "PINK",       PINK       },
-        { "RED",        RED        },
-        { "GRAY",       GRAY       },
-        { "WHITE",      WHITE      },
-        { "BLACK",      BLACK      },
+        { "PURPLE",     SDL_PURPLE     },
+        { "BLUE",       SDL_BLUE       },
+        { "LIGHT_BLUE", SDL_LIGHT_BLUE },
+        { "GREEN",      SDL_GREEN      },
+        { "YELLOW",     SDL_YELLOW     },
+        { "ORANGE",     SDL_ORANGE     },
+        { "PINK",       SDL_PINK       },
+        { "RED",        SDL_RED        },
+        { "GRAY",       SDL_GRAY       },
+        { "WHITE",      SDL_WHITE      },
+        { "BLACK",      SDL_BLACK      },
                     };
 
     int32_t i;
