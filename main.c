@@ -513,16 +513,16 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
         INFO("PANE x,y,w,h  %d %d %d %d\n", pane->x, pane->y, pane->w, pane->h);
 
         piece_circle_radius  = rint(.4*sq_wh);
-        piece_black_circle   = sdl_create_filled_circle_texture(piece_circle_radius, BLACK);
-        piece_white_circle   = sdl_create_filled_circle_texture(piece_circle_radius, WHITE);
+        piece_black_circle   = sdl_create_filled_circle_texture(piece_circle_radius, SDL_BLACK);
+        piece_white_circle   = sdl_create_filled_circle_texture(piece_circle_radius, SDL_WHITE);
 
         prompt_circle_radius = rint(.08*sq_wh);
-        prompt_black_circle  = sdl_create_filled_circle_texture(prompt_circle_radius, BLACK);
-        prompt_white_circle  = sdl_create_filled_circle_texture(prompt_circle_radius, WHITE);
+        prompt_black_circle  = sdl_create_filled_circle_texture(prompt_circle_radius, SDL_BLACK);
+        prompt_white_circle  = sdl_create_filled_circle_texture(prompt_circle_radius, SDL_WHITE);
 
         status_circle_radius = rint(.36*FONTSZ);
-        status_black_circle  = sdl_create_filled_circle_texture(status_circle_radius, BLACK);
-        status_white_circle  = sdl_create_filled_circle_texture(status_circle_radius, WHITE);
+        status_black_circle  = sdl_create_filled_circle_texture(status_circle_radius, SDL_BLACK);
+        status_white_circle  = sdl_create_filled_circle_texture(status_circle_radius, SDL_WHITE);
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
@@ -660,11 +660,11 @@ static void render_game_mode(pane_cx_t *pane_cx)
     // display game status
     int offset = FONTSZ/2 - status_circle_radius;
     rect_t loc_black = { CTL_X, CTL_Y + ROW2Y(4,FONTSZ), FONTSZ, FONTSZ };
-    sdl_render_fill_rect(pane, &loc_black, GREEN);
+    sdl_render_fill_rect(pane, &loc_black, SDL_GREEN);
     sdl_render_texture(pane, loc_black.x+offset, loc_black.y+offset, status_black_circle);
 
     rect_t loc_white = { CTL_X, CTL_Y + ROW2Y(5.5,FONTSZ), FONTSZ, FONTSZ };
-    sdl_render_fill_rect(pane, &loc_white, GREEN);
+    sdl_render_fill_rect(pane, &loc_white, SDL_GREEN);
     sdl_render_texture(pane, loc_white.x+offset, loc_white.y+offset, status_white_circle);
 
     if (game_state == GAME_STATE_RESET) {
@@ -888,7 +888,7 @@ static void render_help_mode(pane_cx_t *pane_cx)
         y = y_top_help + i * fch;
         if (y < -fch) continue;
         if (y >= pane->h) break;
-        sdl_render_text(pane, 0, y, FONTSZ_HELP, lines[i], WHITE, BLACK);
+        sdl_render_text(pane, 0, y, FONTSZ_HELP, lines[i], SDL_WHITE, SDL_BLACK);
     }
 
     // register help events to scroll the help text and exit help mode
@@ -939,9 +939,9 @@ static void render_board(pane_cx_t *pane_cx)
     // draw the 64 playing squares
     for (r = 1; r <= 8; r++) {
         for (c = 1; c <= 8; c++) {
-            color = (gm->highlight[r][c] == 0 ? GREEN : 
-                     gm->highlight[r][c] == 1 ? LIGHT_BLUE : 
-                                                BLUE);
+            color = (gm->highlight[r][c] == 0 ? SDL_GREEN : 
+                     gm->highlight[r][c] == 1 ? SDL_LIGHT_BLUE : 
+                                                SDL_BLUE);
             sdl_render_fill_rect(pane, rc_to_loc(r,c), color);
         }
     }
@@ -983,7 +983,7 @@ static void register_event(pane_cx_t *pane_cx, double r, double c, int event, ch
 
     // register event
     sdl_render_text_and_register_event(
-        pane, x, y, FONTSZ, str, LIGHT_BLUE, BLACK, 
+        pane, x, y, FONTSZ, str, SDL_LIGHT_BLUE, SDL_BLACK, 
         event, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
 }
 
@@ -1004,7 +1004,7 @@ static void print(pane_cx_t *pane_cx, double r, double c, char *fmt, ...)
     va_end(ap);
 
     // register event
-    sdl_render_text(pane, x, y, FONTSZ, str, WHITE, BLACK);
+    sdl_render_text(pane, x, y, FONTSZ, str, SDL_WHITE, SDL_BLACK);
 }
 
 static rect_t *rc_to_loc(int r_arg, int c_arg)
