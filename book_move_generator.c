@@ -31,13 +31,14 @@ book_move_generator(board_t *b, int depth)
             return;
         }
 
-        add_board_to_book_move_tbl with move==0, and save tblidx
+        if another thread is working on this one then return
+        indicate that this thread is working it
 
         drop mutex
         get_move
         acquire mutes
 
-        write to file
+        write to file   NEED A ROUTINE
         return
     }
 

@@ -13,7 +13,7 @@
 //
 
 
-// -----------------  XXXXXXXXXXXXXX  ---------------------------------------------
+// -----------------  GAME BOARD SUPPORT  -----------------------------------------
 
 static int r_incr_tbl[8] = {0, -1, -1, -1,  0,  1, 1, 1};
 static int c_incr_tbl[8] = {1,  1,  0, -1, -1, -1, 0, 1};
@@ -136,82 +136,346 @@ void get_possible_moves(board_t *b, possible_moves_t *pm)
     }
 }
 
-// -----------------  XXXXXXXXXXXXXX  ---------------------------------------------
+// -----------------  BOOK MOVE SUPPORT  ------------------------------------------
 
-#if 0
-// --------------------------------------------------------------------------
-// -----------------  BOOK MOVE XXXXXXXXXXXX  -------------------------------
-// --------------------------------------------------------------------------
+#define BM_FILENAME        "reversi.book"
+#define MAX_BM_HASHTBL     (1 << 20)   // must be pwr of 2
+#define CRC_TO_HTIDX(crc)  ((crc) & (MAX_BM_HASHTBL-1))
+#define MAGIC_BM_FILE      0x55aa1234
 
-book_move_file_read
+// must be invoked with a bm that is part of bm_file
+#define ADD_BM_TO_HASHTBL(bm) \
+    do { \
+        int htidx = CRC_TO_HTIDX((bm)->crc); \
+        (bm)->hashtbl_next = bm_hashtbl[htidx]; \
+        bm_hashtbl[htidx] = (bm) - bm_file; \
+    } while (0)
+
+typedef struct {
+    unsigned short data[9];
+} bm_sig_t;
+
+typedef struct {
+    bm_sig_t     sig;
+    unsigned int crc;
+    int          move;
+    int          hashtbl_next;
+} bm_t;
+
+bm_t *bm_file;
+int   max_bm_file;
+int   bm_hashtbl[MAX_BM_HASHTBL];
+bool  bm_gen_mode;
+
+// xxx move to util  
+void *read_asset_file(char *filename, size_t *filesize);
+
+static void create_sig(unsigned char pos[][10], int whose_turn, bm_sig_t *sig);
+static void rotate(unsigned char pos[][10]);
+static void flip(unsigned char pos[][10]);
+static unsigned int crc32(const void *buf, size_t size);
+
+// --------- public  -----------------
+
+void bm_init(bool bm_gen_mode_arg)
 {
-    open file   ALSO create
-    read records,    validate MAGIC
-    add entries to hash tbl
-    close file
-}
+    size_t filesize;
+    int i;
 
-book_move_get(board_t *b)
-{
-    also rotate and flip
+    // print sizeof bm_t, which should be 32
+    INFO("sizeof(bm_t) = %zd\n", sizeof(bm_sig_t));
 
-    compress board
+    // set global bm_gen_mode
+    bm_gen_mode = bm_gen_mode_arg;
 
-    hash_idx =func(compressed_board)
-
-    search across for matching b
-
-    if not found return -1
-
-    return the move
-}    
-
-board_rotate
-
-board_flip
-
-
-
-
-http://home.thep.lu.se/~bjorn/crc/crc32_simple.c
-/* Simple public domain implementation of the standard CRC32 checksum.
- * Outputs the checksum for each file given as a command line argument.
- * Invalid file names and files that cause errors are silently skipped.
- * The program reads from stdin if it is called with no arguments. */
-
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-
-uint32_t crc32_for_byte(uint32_t r) {
-  for(int j = 0; j < 8; ++j)
-    r = (r & 1? 0: (uint32_t)0xEDB88320L) ^ r >> 1;
-  return r ^ (uint32_t)0xFF000000L;
-}
-
-void crc32(const void *data, size_t n_bytes, uint32_t* crc) {
-  static uint32_t table[0x100];
-  if(!*table)
-    for(size_t i = 0; i < 0x100; ++i)
-      table[i] = crc32_for_byte(i);
-  for(size_t i = 0; i < n_bytes; ++i)
-    *crc = table[(uint8_t)*crc ^ ((uint8_t*)data)[i]] ^ *crc >> 8;
-}
-
-int main(int ac, char** av) {
-  FILE *fp;
-  char buf[1L << 15];
-  for(int i = ac > 1; i < ac; ++i)
-    if((fp = i? fopen(av[i], "rb"): stdin)) { 
-      uint32_t crc = 0;
-      while(!feof(fp) && !ferror(fp))
-	crc32(buf, fread(buf, 1, sizeof(buf), fp), &crc);
-      if(!ferror(fp))
-	printf("%08x%s%s\n", crc, ac > 2? "\t": "", ac > 2? av[i]: "");
-      if(i)
-	fclose(fp);
+    // read BM_FILENAME
+    bm_file = read_asset_file(BM_FILENAME, &filesize);
+    if (bm_file == NULL) {
+        FATAL("failed read asset file %s\n", BM_FILENAME);
     }
-  return 0;
+
+    // validate filesize, which must not be 0 becuase there should be at least
+    // the header; and must be a multiple of sizeof(bm_t)
+    if ((filesize == 0) || (filesize % sizeof(bm_t))) {   
+        FATAL("invalid size %zd for asset file %s\n", filesize, BM_FILENAME);
+    }
+
+    // if running the book move generator then realloc a large bm_file,
+    // to support the generator adding entries
+    if (bm_gen_mode) {
+        bm_file = realloc(bm_file, 1000000*sizeof(bm_t));
+        if (bm_file == NULL) {
+            FATAL("realloc failed\n");
+        }
+    }
+
+    // the first bm_t entry in bm_file is actually a header, 
+    // which just contains a magic number;
+    // verify file magic number
+    if (*(int*)bm_file != MAGIC_BM_FILE) {
+        FATAL("bm_file %s invalid magic 0x%x\n", BM_FILENAME, *(int*)bm_file);
+    }
+
+    // set max_bm_file with the number of entries in the file;
+    // note - the header is not an entry
+    max_bm_file = filesize / sizeof(bm_t) - 1;
+    INFO("max_bm_file = %d\n", max_bm_file);
+
+    // loop over all entries, starting at 1 to skip the header;
+    // and add each entry to the bm_hashtbl
+    for (i = 1; i <= max_bm_file; i++) {
+        ADD_BM_TO_HASHTBL(&bm_file[i]);
+    }
 }
 
-#endif
+//xxx more comments
+int bm_get_move(board_t *b)
+{
+    unsigned char pos[10][10];
+    unsigned char move[10][10];
+    int r, c, i, whose_turn, htidx;
+    bm_sig_t sig;
+    bm_t *bm;
+
+    memcpy(pos, b->pos, sizeof(pos));
+    whose_turn = b->whose_turn;
+
+    memset(move, 0, sizeof(move));
+    for (r = 1; r <= 8; r++) {
+        for (c = 1; c <= 8; c++) {
+            RC_TO_MOVE(r,c,move[r][c]);
+        }
+    }
+
+    for (i = 0; i < 8; i++) {
+        create_sig(pos, whose_turn, &sig);
+        htidx = CRC_TO_HTIDX(crc32(&sig,sizeof(sig)));
+
+        bm = (bm_hashtbl[htidx] == 0 ? NULL : &bm_file[bm_hashtbl[htidx]]);
+        while (bm) {
+            if (memcmp(&bm->sig, &sig, sizeof(bm_sig_t)) == 0) {
+                MOVE_TO_RC(bm->move, r, c);
+                return move[r][c];
+            }
+            bm = (bm->hashtbl_next == 0 ? NULL : &bm_file[bm->hashtbl_next]);
+        }
+
+        rotate(pos);
+        rotate(move);
+        if (i == 3) {
+            flip(pos);
+            flip(move);
+        }
+    }
+
+    return MOVE_NONE;
+}
+
+//xxx single thread
+void bm_add_move(board_t *b, int move)
+{
+    bm_t new_bm_ent;
+    int fd, len;
+
+    static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+    // this routine needs to be single threaded
+    pthread_mutex_lock(&mutex);
+
+    // bm_init must have been called to enable book move generator mode
+    if (bm_gen_mode == false) {
+        FATAL("bm_gen_mode must be enabled\n");
+    }
+
+    // verfiy that there isn't already an book move entry for 'b'
+    if (bm_get_move(b) == MOVE_NONE) {
+        WARN("entry already exists\n");
+        pthread_mutex_unlock(&mutex);
+        return;
+    }
+
+    // create the bm_t
+    create_sig(b->pos, b->whose_turn, &new_bm_ent.sig);
+    new_bm_ent.crc = crc32(&new_bm_ent.sig, sizeof(bm_sig_t));
+    new_bm_ent.move = move;
+    new_bm_ent.hashtbl_next = 0;
+
+    // add the bm_t to bm_file array, and to bm_hashtbl
+    //  (note that the '+1' is to skip the header entry)
+    bm_file[max_bm_file+1] = new_bm_ent;
+    ADD_BM_TO_HASHTBL(&bm_file[max_bm_file+1]);
+    max_bm_file++;
+
+    // write the bm_t to the BM_FILENAME
+    if ((fd = open(BM_FILENAME, O_WRONLY)) < 0) {
+        FATAL("open error, %s\n", strerror(errno));
+    }
+    lseek(fd, 0, SEEK_END);
+    len = write(fd, &new_bm_ent, sizeof(bm_t));
+    if (len != sizeof(bm_t)) {
+        FATAL("write error, len=%d, %s\n", len, strerror(errno));
+    }
+    close(fd);
+
+    // unlock mutex
+    pthread_mutex_unlock(&mutex);
+}
+
+// --------- private  -----------------
+
+static void create_sig(unsigned char pos[][10], int whose_turn, bm_sig_t *sig)
+{
+    int r;
+
+    // set sig->data[0..7]
+    for (r = 1; r <= 8; r++) {
+        sig->data[r-1] = (pos[r][1] << 14) |
+                         (pos[r][2] << 12) |
+                         (pos[r][3] << 10) |
+                         (pos[r][4] <<  8) |
+                         (pos[r][5] <<  6) |
+                         (pos[r][6] <<  4) |
+                         (pos[r][7] <<  2) |
+                         (pos[r][8] <<  0);
+    }
+
+    // set sig->data[8]
+    sig->data[8] = whose_turn;
+}
+
+static void rotate(unsigned char pos[][10])
+{
+    int r, c;
+    unsigned char A, B, C, D;
+
+    for (r = 1; r <= 4; r++) {
+        for (c = 1; c <= 4; c++) {
+            A = pos[r][c];
+            B = pos[c][9-r];
+            C = pos[9-r][9-c];
+            D = pos[9-c][r];
+
+            pos[r][c]      = D;
+            pos[c][9-r]    = A;
+            pos[9-r][9-c]  = B;
+            pos[9-c][r]    = C;
+        }
+    }
+}
+
+static void flip(unsigned char pos[][10])
+{
+    int r;
+
+    for (r = 1; r <= 8; r++) {
+        SWAP(pos[r][1], pos[r][8]);
+        SWAP(pos[r][2], pos[r][7]);
+        SWAP(pos[r][3], pos[r][6]);
+        SWAP(pos[r][4], pos[r][5]);
+    }
+}
+
+// https://web.mit.edu/freebsd/head/sys/libkern/crc32.c
+static const uint32_t crc32_tab[] = {
+	0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
+	0xe963a535, 0x9e6495a3,	0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
+	0x09b64c2b, 0x7eb17cbd, 0xe7b82d07, 0x90bf1d91, 0x1db71064, 0x6ab020f2,
+	0xf3b97148, 0x84be41de,	0x1adad47d, 0x6ddde4eb, 0xf4d4b551, 0x83d385c7,
+	0x136c9856, 0x646ba8c0, 0xfd62f97a, 0x8a65c9ec,	0x14015c4f, 0x63066cd9,
+	0xfa0f3d63, 0x8d080df5,	0x3b6e20c8, 0x4c69105e, 0xd56041e4, 0xa2677172,
+	0x3c03e4d1, 0x4b04d447, 0xd20d85fd, 0xa50ab56b,	0x35b5a8fa, 0x42b2986c,
+	0xdbbbc9d6, 0xacbcf940,	0x32d86ce3, 0x45df5c75, 0xdcd60dcf, 0xabd13d59,
+	0x26d930ac, 0x51de003a, 0xc8d75180, 0xbfd06116, 0x21b4f4b5, 0x56b3c423,
+	0xcfba9599, 0xb8bda50f, 0x2802b89e, 0x5f058808, 0xc60cd9b2, 0xb10be924,
+	0x2f6f7c87, 0x58684c11, 0xc1611dab, 0xb6662d3d,	0x76dc4190, 0x01db7106,
+	0x98d220bc, 0xefd5102a, 0x71b18589, 0x06b6b51f, 0x9fbfe4a5, 0xe8b8d433,
+	0x7807c9a2, 0x0f00f934, 0x9609a88e, 0xe10e9818, 0x7f6a0dbb, 0x086d3d2d,
+	0x91646c97, 0xe6635c01, 0x6b6b51f4, 0x1c6c6162, 0x856530d8, 0xf262004e,
+	0x6c0695ed, 0x1b01a57b, 0x8208f4c1, 0xf50fc457, 0x65b0d9c6, 0x12b7e950,
+	0x8bbeb8ea, 0xfcb9887c, 0x62dd1ddf, 0x15da2d49, 0x8cd37cf3, 0xfbd44c65,
+	0x4db26158, 0x3ab551ce, 0xa3bc0074, 0xd4bb30e2, 0x4adfa541, 0x3dd895d7,
+	0xa4d1c46d, 0xd3d6f4fb, 0x4369e96a, 0x346ed9fc, 0xad678846, 0xda60b8d0,
+	0x44042d73, 0x33031de5, 0xaa0a4c5f, 0xdd0d7cc9, 0x5005713c, 0x270241aa,
+	0xbe0b1010, 0xc90c2086, 0x5768b525, 0x206f85b3, 0xb966d409, 0xce61e49f,
+	0x5edef90e, 0x29d9c998, 0xb0d09822, 0xc7d7a8b4, 0x59b33d17, 0x2eb40d81,
+	0xb7bd5c3b, 0xc0ba6cad, 0xedb88320, 0x9abfb3b6, 0x03b6e20c, 0x74b1d29a,
+	0xead54739, 0x9dd277af, 0x04db2615, 0x73dc1683, 0xe3630b12, 0x94643b84,
+	0x0d6d6a3e, 0x7a6a5aa8, 0xe40ecf0b, 0x9309ff9d, 0x0a00ae27, 0x7d079eb1,
+	0xf00f9344, 0x8708a3d2, 0x1e01f268, 0x6906c2fe, 0xf762575d, 0x806567cb,
+	0x196c3671, 0x6e6b06e7, 0xfed41b76, 0x89d32be0, 0x10da7a5a, 0x67dd4acc,
+	0xf9b9df6f, 0x8ebeeff9, 0x17b7be43, 0x60b08ed5, 0xd6d6a3e8, 0xa1d1937e,
+	0x38d8c2c4, 0x4fdff252, 0xd1bb67f1, 0xa6bc5767, 0x3fb506dd, 0x48b2364b,
+	0xd80d2bda, 0xaf0a1b4c, 0x36034af6, 0x41047a60, 0xdf60efc3, 0xa867df55,
+	0x316e8eef, 0x4669be79, 0xcb61b38c, 0xbc66831a, 0x256fd2a0, 0x5268e236,
+	0xcc0c7795, 0xbb0b4703, 0x220216b9, 0x5505262f, 0xc5ba3bbe, 0xb2bd0b28,
+	0x2bb45a92, 0x5cb36a04, 0xc2d7ffa7, 0xb5d0cf31, 0x2cd99e8b, 0x5bdeae1d,
+	0x9b64c2b0, 0xec63f226, 0x756aa39c, 0x026d930a, 0x9c0906a9, 0xeb0e363f,
+	0x72076785, 0x05005713, 0x95bf4a82, 0xe2b87a14, 0x7bb12bae, 0x0cb61b38,
+	0x92d28e9b, 0xe5d5be0d, 0x7cdcefb7, 0x0bdbdf21, 0x86d3d2d4, 0xf1d4e242,
+	0x68ddb3f8, 0x1fda836e, 0x81be16cd, 0xf6b9265b, 0x6fb077e1, 0x18b74777,
+	0x88085ae6, 0xff0f6a70, 0x66063bca, 0x11010b5c, 0x8f659eff, 0xf862ae69,
+	0x616bffd3, 0x166ccf45, 0xa00ae278, 0xd70dd2ee, 0x4e048354, 0x3903b3c2,
+	0xa7672661, 0xd06016f7, 0x4969474d, 0x3e6e77db, 0xaed16a4a, 0xd9d65adc,
+	0x40df0b66, 0x37d83bf0, 0xa9bcae53, 0xdebb9ec5, 0x47b2cf7f, 0x30b5ffe9,
+	0xbdbdf21c, 0xcabac28a, 0x53b39330, 0x24b4a3a6, 0xbad03605, 0xcdd70693,
+	0x54de5729, 0x23d967bf, 0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94,
+	0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
+};
+
+static uint32_t crc32(const void *buf, size_t size)
+{
+    const uint8_t *p = buf;
+    uint32_t crc;
+
+    crc = ~0U;
+    while (size--) {
+        crc = crc32_tab[(crc ^ *p++) & 0xFF] ^ (crc >> 8);
+    }
+    return crc ^ ~0U;
+}
+
+// --------- move these to utils -----------------
+
+// XXX get the directory on linux
+void *read_asset_file(char *filename, size_t *filesize)
+{
+    int rc, fd;
+    size_t len;
+    struct stat statbuf;
+    void *data;
+
+    *filesize = 0;
+
+    fd = open(filename, O_RDONLY);
+    if (fd < 0) {
+        ERROR("open error on %s, %s\n", filename, strerror(errno));
+        return NULL;
+    }
+
+    rc = fstat(fd, &statbuf);
+    if (rc != 0) {
+        ERROR("stat error on %s, %s\n", filename, strerror(errno));
+        close(fd);
+        return NULL;
+    }
+
+    data = malloc(statbuf.st_size);
+    if (data == NULL) {
+        ERROR("malloc %zd\n", statbuf.st_size);
+        close(fd);
+        return NULL;
+    }
+
+    len = read(fd, data, statbuf.st_size);
+    if (len != statbuf.st_size) {
+        ERROR("read error, len=%zd size=%zd, %s\n", len, statbuf.st_size, strerror(errno));
+        free(data);
+        close(fd);
+        return NULL;
+    }
+
+    close(fd);
+    *filesize = statbuf.st_size;
+    return data;
+}
+

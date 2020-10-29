@@ -14,6 +14,8 @@
 #include <math.h>
 #include <pthread.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #define DEBUG_PRINT_ENABLED (debug_enabled)
 #include <util_misc.h>
@@ -23,8 +25,8 @@
 //
 
 #define NONE   0
-#define BLACK  10   // using 'BLACK' and 'WHITE' here to refer to 
-#define WHITE  9    // the Reversi Piece; these defines are also in util_sdl.h
+#define BLACK  1
+#define WHITE  2
 
 #define MOVE_PASS       -1
 #define MOVE_GAME_OVER  -2
@@ -87,13 +89,18 @@ extern char *version;
 // prototypes
 //
 
-void apply_move(board_t *b, int move, unsigned char highlight[][10]);
-void get_possible_moves(board_t *b, possible_moves_t *pm);
-bool move_cancelled(void);
-
 int human_get_move(int level, board_t *b, char *eval_str);
 int cpu_get_move(int level, board_t *b, char *eval_str);
 int oldb_get_move(int level, board_t *b, char *eval_str);
+
+bool move_cancelled(void);
+
+void apply_move(board_t *b, int move, unsigned char highlight[][10]);
+void get_possible_moves(board_t *b, possible_moves_t *pm);
+
+void bm_init(bool bm_gen_mode);
+int bm_get_move(board_t *b);
+void bm_add_move(board_t *b, int move);
 
 //
 // inline procedures
