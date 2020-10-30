@@ -1,3 +1,14 @@
+#include <common.h>
+
+#include <util_misc.h>
+
+int main(int argc, char **argv)
+{
+    bm_init(true);
+
+    return 0;
+}
+
 
 
 #if 0

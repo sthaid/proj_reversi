@@ -91,7 +91,7 @@ void  apply_move(board_t *b, int move, unsigned char highlight[][10])
 
     if (highlight) {
         sleep(1);
-        memset(highlight, 0, 100);  // XXX sizeof
+        memset(highlight, 0, 100);  // xxx sizeof
     }
 
     b->whose_turn = OTHER_COLOR(b->whose_turn);
@@ -138,10 +138,11 @@ void get_possible_moves(board_t *b, possible_moves_t *pm)
 
 // -----------------  BOOK MOVE SUPPORT  ------------------------------------------
 
-#define BM_FILENAME        "reversi.book"
+//XXX more comments
+
 #define MAX_BM_HASHTBL     (1 << 20)   // must be pwr of 2
 #define CRC_TO_HTIDX(crc)  ((crc) & (MAX_BM_HASHTBL-1))
-#define MAGIC_BM_FILE      0x55aa1234
+#define MAGIC_BM_FILE      0x44434241
 
 // must be invoked with a bm that is part of bm_file
 #define ADD_BM_TO_HASHTBL(bm) \
@@ -166,9 +167,11 @@ bm_t *bm_file;
 int   max_bm_file;
 int   bm_hashtbl[MAX_BM_HASHTBL];
 bool  bm_gen_mode;
+char  bm_filename[1000];
 
-// xxx move to util  
+// xxx move to util LATER
 void *read_asset_file(char *filename, size_t *filesize);
+char *progdirname(void);
 
 static void create_sig(unsigned char pos[][10], int whose_turn, bm_sig_t *sig);
 static void rotate(unsigned char pos[][10]);
@@ -180,24 +183,42 @@ static unsigned int crc32(const void *buf, size_t size);
 void bm_init(bool bm_gen_mode_arg)
 {
     size_t filesize;
-    int i;
+    int i, rc, fd;
+    struct stat statbuf;
 
-    // print sizeof bm_t, which should be 32
-    INFO("sizeof(bm_t) = %zd\n", sizeof(bm_sig_t));
-
-    // set global bm_gen_mode
+    // init:
+    // - bm_gen_mode
+    // - bm_filename
     bm_gen_mode = bm_gen_mode_arg;
+    sprintf(bm_filename, "%s/%s", progdirname(), "reversi.book");
 
-    // read BM_FILENAME
-    bm_file = read_asset_file(BM_FILENAME, &filesize);
+    // if running book move generator then create bm_filename if it doesn't exist
+    if (bm_gen_mode) {
+        rc = stat(bm_filename, &statbuf);
+        if (rc == -1 && errno == ENOENT) {
+            INFO("creating empty %s\n", bm_filename);
+            static bm_t hdr;
+            *(int*)&hdr = MAGIC_BM_FILE;
+            if ((fd = open(bm_filename, O_CREAT|O_EXCL|O_WRONLY, 0644)) < 0) {
+                FATAL("oepn to create %s, %s\n", bm_filename, strerror(errno));
+            }
+            write(fd, &hdr, sizeof(hdr));
+            close(fd);
+        } else if (rc == -1) {
+            FATAL("stat %s, %s\n", bm_filename, strerror(errno));
+        }
+    }
+
+    // read bm_filename
+    bm_file = read_asset_file(bm_filename, &filesize);
     if (bm_file == NULL) {
-        FATAL("failed read asset file %s\n", BM_FILENAME);
+        FATAL("failed read asset file %s\n", bm_filename);
     }
 
     // validate filesize, which must not be 0 becuase there should be at least
     // the header; and must be a multiple of sizeof(bm_t)
     if ((filesize == 0) || (filesize % sizeof(bm_t))) {   
-        FATAL("invalid size %zd for asset file %s\n", filesize, BM_FILENAME);
+        FATAL("invalid size %zd for asset file %s\n", filesize, bm_filename);
     }
 
     // if running the book move generator then realloc a large bm_file,
@@ -213,7 +234,7 @@ void bm_init(bool bm_gen_mode_arg)
     // which just contains a magic number;
     // verify file magic number
     if (*(int*)bm_file != MAGIC_BM_FILE) {
-        FATAL("bm_file %s invalid magic 0x%x\n", BM_FILENAME, *(int*)bm_file);
+        FATAL("bm_file %s invalid magic 0x%x\n", bm_filename, *(int*)bm_file);
     }
 
     // set max_bm_file with the number of entries in the file;
@@ -228,7 +249,6 @@ void bm_init(bool bm_gen_mode_arg)
     }
 }
 
-//xxx more comments
 int bm_get_move(board_t *b)
 {
     unsigned char pos[10][10];
@@ -271,7 +291,6 @@ int bm_get_move(board_t *b)
     return MOVE_NONE;
 }
 
-//xxx single thread
 void bm_add_move(board_t *b, int move)
 {
     bm_t new_bm_ent;
@@ -306,8 +325,8 @@ void bm_add_move(board_t *b, int move)
     ADD_BM_TO_HASHTBL(&bm_file[max_bm_file+1]);
     max_bm_file++;
 
-    // write the bm_t to the BM_FILENAME
-    if ((fd = open(BM_FILENAME, O_WRONLY)) < 0) {
+    // write the bm_t to the bm_filename
+    if ((fd = open(bm_filename, O_WRONLY)) < 0) {
         FATAL("open error, %s\n", strerror(errno));
     }
     lseek(fd, 0, SEEK_END);
@@ -436,7 +455,6 @@ static uint32_t crc32(const void *buf, size_t size)
 
 // --------- move these to utils -----------------
 
-// XXX get the directory on linux
 void *read_asset_file(char *filename, size_t *filesize)
 {
     int rc, fd;
@@ -479,3 +497,15 @@ void *read_asset_file(char *filename, size_t *filesize)
     return data;
 }
 
+char *progdirname(void) 
+{
+    static char buf[1000];
+    int rc;
+
+    rc = readlink("/proc/self/exe", buf, sizeof(buf));
+    if (rc < 0) {
+        FATAL("readlink, %s\n", strerror(errno));
+    }
+
+    return dirname(buf);
+}

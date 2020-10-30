@@ -1,4 +1,4 @@
-TARGETS = reversi
+TARGETS = reversi book_move_generator
 
 CC = gcc
 OUTPUT_OPTION=-MMD -MP -o $@
@@ -17,7 +17,13 @@ SRC_REVERSI = main.c \
               util/util_jpeg.c \
               util/util_png.c
 
-DEP = $(SRC_REVERSI:.c=.d) 
+SRC_BOOK_MOVE_GENERATOR = \
+	      book_move_generator.c \
+	      game_utils.c \
+              util/util_misc.c 
+
+DEP = $(SRC_REVERSI:.c=.d) \
+      $(SRC_BOOK_MOVE_GENERATOR:.c=.d) 
 
 #
 # build rules
@@ -29,6 +35,10 @@ reversi: $(SRC_REVERSI:.c=.o)
 	echo "char *version = \"`git log -1 --format=%h`\";" > version.c
 	$(CC) -o $@ $(SRC_REVERSI:.c=.o) version.c \
               -lpthread -lm -ljpeg -lpng -lSDL2 -lSDL2_ttf
+
+book_move_generator: $(SRC_BOOK_MOVE_GENERATOR:.c=.o)
+	$(CC) -o $@ $(SRC_BOOK_MOVE_GENERATOR:.c=.o) \
+              -lpthread -lm
 
 -include $(DEP)
 
