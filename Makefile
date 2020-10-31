@@ -20,6 +20,7 @@ SRC_REVERSI = main.c \
 SRC_BOOK_MOVE_GENERATOR = \
 	      book_move_generator.c \
 	      game_utils.c \
+              cpu.c \
               util/util_misc.c 
 
 DEP = $(SRC_REVERSI:.c=.d) \

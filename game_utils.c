@@ -143,6 +143,7 @@ void get_possible_moves(board_t *b, possible_moves_t *pm)
 #define MAX_BM_HASHTBL     (1 << 20)   // must be pwr of 2
 #define CRC_TO_HTIDX(crc)  ((crc) & (MAX_BM_HASHTBL-1))
 #define MAGIC_BM_FILE      0x44434241
+#define MAX_BM_FILE        10000000
 
 // must be invoked with a bm that is part of bm_file
 #define ADD_BM_TO_HASHTBL(bm) \
@@ -158,18 +159,20 @@ typedef struct {
 
 typedef struct {
     bm_sig_t     sig;
+    short        pad;
     unsigned int crc;
     int          move;
     int          hashtbl_next;
 } bm_t;
 
+// XXX make these static later
 bm_t *bm_file;
 int   max_bm_file;
 int   bm_hashtbl[MAX_BM_HASHTBL];
 bool  bm_gen_mode;
 char  bm_filename[1000];
 
-// xxx move to util LATER
+// XXX move to util LATER
 void *read_asset_file(char *filename, size_t *filesize);
 char *progdirname(void);
 
@@ -185,6 +188,11 @@ void bm_init(bool bm_gen_mode_arg)
     size_t filesize;
     int i, rc, fd;
     struct stat statbuf;
+
+    // expect sizeof bm_t to be 32
+    if (sizeof(bm_t) != 32) {
+        FATAL("sizeof bm_t = %zd\n", sizeof(bm_t));
+    }
 
     // init:
     // - bm_gen_mode
@@ -224,7 +232,7 @@ void bm_init(bool bm_gen_mode_arg)
     // if running the book move generator then realloc a large bm_file,
     // to support the generator adding entries
     if (bm_gen_mode) {
-        bm_file = realloc(bm_file, 1000000*sizeof(bm_t));
+        bm_file = realloc(bm_file, MAX_BM_FILE*sizeof(bm_t));
         if (bm_file == NULL) {
             FATAL("realloc failed\n");
         }
@@ -249,6 +257,7 @@ void bm_init(bool bm_gen_mode_arg)
     }
 }
 
+// xxx comments
 int bm_get_move(board_t *b)
 {
     unsigned char pos[10][10];
@@ -256,6 +265,10 @@ int bm_get_move(board_t *b)
     int r, c, i, whose_turn, htidx;
     bm_sig_t sig;
     bm_t *bm;
+
+    if (bm_file == NULL) {
+        return MOVE_NONE;
+    }
 
     memcpy(pos, b->pos, sizeof(pos));
     whose_turn = b->whose_turn;
@@ -298,16 +311,21 @@ void bm_add_move(board_t *b, int move)
 
     static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-    // this routine needs to be single threaded
+    // this routine is single threaded
     pthread_mutex_lock(&mutex);
 
     // bm_init must have been called to enable book move generator mode
-    if (bm_gen_mode == false) {
+    if (bm_gen_mode == false || bm_file == NULL) {
         FATAL("bm_gen_mode must be enabled\n");
     }
 
-    // verfiy that there isn't already an book move entry for 'b'
-    if (bm_get_move(b) == MOVE_NONE) {
+    // if book mark file is full then fatal error
+    if (max_bm_file+1 == MAX_BM_FILE) {
+        FATAL("bookmark file is full, max_bm_file=%d\n", max_bm_file);
+    }
+
+    // if there is already a book move entry for 'b' then print warning and return
+    if (bm_get_move(b) != MOVE_NONE) {
         WARN("entry already exists\n");
         pthread_mutex_unlock(&mutex);
         return;

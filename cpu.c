@@ -23,6 +23,8 @@ static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possi
 
 // -----------------  CPU PLAYER - GET_MOVE ---------------------------------
 
+// xxx comments
+
 int cpu_get_move(int level, board_t *b, char *eval_str)
 {
     int    move, value, depth, piececnt;
@@ -35,7 +37,12 @@ int cpu_get_move(int level, board_t *b, char *eval_str)
         FATAL("invlaid level %d\n", level);
     }
 
-    // xxx comments
+    // XXX also get value and create_eval_str
+    move = bm_get_move(b);
+    if (move != MOVE_NONE) {
+        INFO("XXX GOT BOOK MOVE %d\n", move);
+        return move;
+    }
 
     piececnt = b->black_cnt + b->white_cnt;
     M = 1.0;
@@ -47,7 +54,16 @@ int cpu_get_move(int level, board_t *b, char *eval_str)
     value = alphabeta(b, depth, -INFIN, +INFIN, true, &move);
 
     create_eval_str(value, eval_str);
-    return move; \
+    return move;
+}
+
+int cpu_book_move_generator(board_t *b)
+{
+    int move, depth=5;  // XXX adjust depth
+
+    heuristic = heuristic_a;
+    alphabeta(b, depth, -INFIN, +INFIN, true, &move);
+    return move;
 }
 
 // -----------------  CREATE GAME FORECAST EVALUATION STRING  ----------------

@@ -177,6 +177,10 @@ int main(int argc, char **argv)
     INFO("CONFIG_SHOW_MOVE_YN         = %c\n", CONFIG_SHOW_MOVE_YN);
     INFO("CONFIG_SHOW_EVAL_YN         = %c\n", CONFIG_SHOW_EVAL_YN);
     
+    // book move initialization
+    // XXX consider an option to disable doing this
+    bm_init(false);
+
     // create game_thread, and
     // wait for player_black and player_white to be initialized by the game_thread
     pthread_create(&tid, NULL, game_thread, NULL);

@@ -101,6 +101,7 @@ void get_possible_moves(board_t *b, possible_moves_t *pm);
 void bm_init(bool bm_gen_mode);
 int bm_get_move(board_t *b);
 void bm_add_move(board_t *b, int move);
+int cpu_book_move_generator(board_t *b);
 
 //
 // inline procedures
