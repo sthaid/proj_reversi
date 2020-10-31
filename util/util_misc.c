@@ -18,6 +18,9 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <math.h>
+#include <libgen.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #include "util_misc.h"
 
@@ -99,6 +102,66 @@ void logmsg(char *lvl, const char *func, char *fmt, ...)
                      time2str(time_str, get_real_time_us(), false, true, true),
                      lvl, func, msg);
     }
+}
+#endif
+
+// -----------------  READ ASSET FILE  -----------------------------------
+
+//XXX update these for android
+void *read_asset_file(char *filename, size_t *filesize)
+{
+    int rc, fd;
+    size_t len;
+    struct stat statbuf;
+    void *data;
+
+    *filesize = 0;
+
+    fd = open(filename, O_RDONLY);
+    if (fd < 0) {
+        ERROR("open error on %s, %s\n", filename, strerror(errno));
+        return NULL;
+    }
+
+    rc = fstat(fd, &statbuf);
+    if (rc != 0) {
+        ERROR("stat error on %s, %s\n", filename, strerror(errno));
+        close(fd);
+        return NULL;
+    }
+
+    data = malloc(statbuf.st_size);
+    if (data == NULL) {
+        ERROR("malloc %zd\n", statbuf.st_size);
+        close(fd);
+        return NULL;
+    }
+
+    len = read(fd, data, statbuf.st_size);
+    if (len != statbuf.st_size) {
+        ERROR("read error, len=%zd size=%zd, %s\n", len, statbuf.st_size, strerror(errno));
+        free(data);
+        close(fd);
+        return NULL;
+    }
+
+    close(fd);
+    *filesize = statbuf.st_size;
+    return data;
+}
+
+#ifndef ANDROID
+char *progdirname(void) 
+{
+    static char buf[1000];
+    int rc;
+
+    rc = readlink("/proc/self/exe", buf, sizeof(buf));
+    if (rc < 0) {
+        FATAL("readlink, %s\n", strerror(errno));
+    }
+
+    return dirname(buf);
 }
 #endif
 

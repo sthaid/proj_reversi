@@ -86,6 +86,11 @@
 
 void logmsg(char * lvl, const char * func, char * fmt, ...) __attribute__ ((format (printf, 3, 4)));
 
+// -----------------  READ ASSET FILE  -----------------------------------
+
+void *read_asset_file(char *filename, size_t *filesize);
+char *progdirname(void);
+
 // -----------------  TIME  --------------------------------------
 
 #define MAX_TIME_STR 50
