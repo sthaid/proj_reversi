@@ -10,13 +10,15 @@
 // defines
 //
 
-#define MAX_THREAD 2
+#define MAX_THREAD 100
+
 //#define DEBUG_BMG
 
 //
 // variables
 //
 
+static int             max_thread;
 static int             bm_added;
 static int             bm_already_exists;
 static int             bm_being_processed_by_another_thread;
@@ -36,17 +38,20 @@ static void *bm_gen_thread(void *cx);
 static void generate_book_moves(board_t *b, int depth);
 static void debug(char *str, board_t *b, int move);
 
-// XXX add ctrlc
-// XXX required arg for number of threads
-
 // -----------------  MAIN  ------------------------------------------
 
 int main(int argc, char **argv)
 {
     long i;
-    pthread_t thread_id[MAX_THREAD];
-    unsigned long start_us;
+    pthread_t thread_id;
+    unsigned long prog_start_us;
     struct sigaction act;
+
+    // get max_thread XXX 
+    max_thread = 2;
+    if (max_thread < 1 || max_thread > MAX_THREAD) {
+        FATAL("invalid max_thread %d\n",max_thread);
+    }
 
     // register ctrl-c handler
     memset(&act, 0, sizeof(act));
@@ -57,24 +62,39 @@ int main(int argc, char **argv)
     bm_init(true);
 
     // start the threads
-    start_us = microsec_timer();
-    active_thread_count = MAX_THREAD;
-    for (i = 0; i < MAX_THREAD; i++) {
-        pthread_create(&thread_id[i], NULL, bm_gen_thread, (void*)(i));
+    prog_start_us = microsec_timer();
+    active_thread_count = max_thread;
+    for (i = 0; i < max_thread; i++) {
+        pthread_create(&thread_id, NULL, bm_gen_thread, (void*)(i));
     }
 
-    // XXX later reduce to once in 10 minutes
-    //     also print the rate for bm_added
-    // XXX more work here to print rate every 10 minutes
-
     // wait for the threads to complete, or be interrupted by ctrl_c
-    while (active_thread_count > 0 && !ctrl_c) {
-        sleep(1);
-        DEBUG("max_bm_file=%d  bm_added=%d  bm_already_exists=%d  bm_another_thread=%d\n", 
+    // XXX cleanup, and comments
+    while (active_thread_count > 0 && ctrl_c == false) {
+        int start_bm_added, duration_bm_added;
+        unsigned long start_us;
+        double duration_minutes = .01;
+
+        start_us = microsec_timer();
+        start_bm_added = bm_added;
+        while (true) {
+            sleep(1);
+            duration_minutes = (microsec_timer() - start_us) / (60. * 1000000);
+            if (duration_minutes > 1 || ctrl_c == true) {
+                break;
+            }
+        }
+        if (ctrl_c) {
+            break;
+        }
+        duration_bm_added = bm_added - start_bm_added;
+
+        INFO("max_bm_file=%d  added=%d  skipped=%d,%d  rate=%0.1f per minute\n",
               bm_get_max_bm_file(), 
               bm_added, 
               bm_already_exists,
-              bm_being_processed_by_another_thread);
+              bm_being_processed_by_another_thread,
+              duration_bm_added / duration_minutes);
     }
 
     // for caution exit with the mutex locked so that when exitting due to ctrl-c
@@ -89,7 +109,7 @@ int main(int argc, char **argv)
     //   duration: x.x days  OR  hh:mm:ss
     //   rate:     x.x moves added per minute
     int hours, minutes, seconds, total_secs;
-    total_secs = (microsec_timer() - start_us) / 1000000;
+    total_secs = (microsec_timer() - prog_start_us) / 1000000;
     if (total_secs >= 86400) {
         INFO("duration: %0.1f days\n", total_secs/86400.);
     } else {
@@ -185,7 +205,7 @@ static void generate_book_moves(board_t *b, int depth)
         }
 
         // if another thread is processing this 'b' then return
-        for (i = 0; i < MAX_THREAD; i++) {
+        for (i = 0; i < max_thread; i++) {
             if (i == tid) continue;
             if (board_sequence_num[i] == board_sequence_num[tid]) {
                 bm_being_processed_by_another_thread++;
