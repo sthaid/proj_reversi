@@ -165,12 +165,11 @@ typedef struct {
     int          hashtbl_next;
 } bm_t;
 
-// XXX make these static later
-bm_t *bm_file;
-int   max_bm_file;
-int   bm_hashtbl[MAX_BM_HASHTBL];
-bool  bm_gen_mode;
-char  bm_filename[1000];
+static bm_t *bm_file;
+static int   max_bm_file;
+static int   bm_hashtbl[MAX_BM_HASHTBL];
+static bool  bm_gen_mode;
+static char  bm_filename[1000];
 
 static void create_sig(unsigned char pos[][10], int whose_turn, bm_sig_t *sig);
 static void rotate(unsigned char pos[][10]);
@@ -242,7 +241,7 @@ void bm_init(bool bm_gen_mode_arg)
     }
 
     // set max_bm_file with the number of entries in the file;
-    // note - the header is not an entry
+    // note - the header is not an entry, thus the '- 1'
     max_bm_file = filesize / sizeof(bm_t) - 1;
     INFO("max_bm_file = %d\n", max_bm_file);
 
@@ -300,6 +299,8 @@ int bm_get_move(board_t *b)
     return MOVE_NONE;
 }
 
+// --------- public - for book_move_generator use only ------------
+
 void bm_add_move(board_t *b, int move)
 {
     bm_t new_bm_ent;
@@ -352,6 +353,11 @@ void bm_add_move(board_t *b, int move)
 
     // unlock mutex
     pthread_mutex_unlock(&mutex);
+}
+
+int bm_get_max_bm_file(void)
+{
+    return max_bm_file;
 }
 
 // --------- private  -----------------

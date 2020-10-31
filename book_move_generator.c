@@ -19,8 +19,6 @@ static void dbgpr(char *str, board_t *b, int move);
 
 // XXX multi threaded
 
-extern int max_bm_file;  // xxx temp
-
 // -----------------------------------------------------
 
 int main(int argc, char **argv)
@@ -42,7 +40,7 @@ int main(int argc, char **argv)
     while (active_thread_count > 0) {
         sleep(1);
         INFO("max_bm_file=%d  bm_added=%d  bm_already_exists=%d\n", 
-             max_bm_file, bm_added, bm_already_exists);
+             bm_get_max_bm_file(), bm_added, bm_already_exists);
     }
 
     end_us = microsec_timer();
