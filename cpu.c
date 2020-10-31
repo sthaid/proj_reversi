@@ -23,8 +23,7 @@ static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possi
 
 // -----------------  CPU PLAYER - GET_MOVE ---------------------------------
 
-// xxx comments
-
+// xxx comments needed in this routine
 int cpu_get_move(int level, board_t *b, char *eval_str)
 {
     int    move, value, depth, piececnt;
@@ -37,10 +36,12 @@ int cpu_get_move(int level, board_t *b, char *eval_str)
         FATAL("invlaid level %d\n", level);
     }
 
-    // XXX also get value and create_eval_str
     move = bm_get_move(b);
     if (move != MOVE_NONE) {
-        INFO("XXX GOT BOOK MOVE %d\n", move);
+        INFO("GOT BOOK MOVE %d\n", move);  // xxx temp print
+        if (eval_str) {
+            eval_str[0] = '\0';
+        }
         return move;
     }
 

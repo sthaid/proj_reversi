@@ -114,6 +114,7 @@ int main(int argc, char **argv)
     #define OLDB_PLAYER(lvl) &(player_t){oldb_get_move, lvl, "OLDB" #lvl}
 
     bool          fullscreen = false;
+    bool          book_move_enabled = true;
     unsigned char opt_char;
     pthread_t     tid;
 
@@ -121,14 +122,18 @@ int main(int argc, char **argv)
 
     // get options
     // -f : fullscreen
+    // -d : disable book move lookup
     while (true) {
-        opt_char = getopt(argc, argv, "f");
+        opt_char = getopt(argc, argv, "fd");
         if (opt_char == 0xff) {
             break;
         }
         switch (opt_char) {
         case 'f':
             fullscreen = true;
+            break;
+        case 'd':
+            book_move_enabled = false;
             break;
         default:
             FATAL("invalid opt_char '%c'\n", opt_char);
@@ -178,8 +183,10 @@ int main(int argc, char **argv)
     INFO("CONFIG_SHOW_EVAL_YN         = %c\n", CONFIG_SHOW_EVAL_YN);
     
     // book move initialization
-    // XXX consider an option to disable doing this
-    bm_init(false);
+    INFO("book move is %s\n", (book_move_enabled ? "ENABLED" : "DISABLED"));
+    if (book_move_enabled) {
+        bm_init(false);
+    }
 
     // create game_thread, and
     // wait for player_black and player_white to be initialized by the game_thread
