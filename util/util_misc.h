@@ -43,11 +43,6 @@
 #define DEBUG(fmt, args...)
 #endif
 
-#define BLANK_LINE \
-    do { \
-        INFO("#"); \
-    } while (0)
-
 #define FATAL(fmt, args...) \
     do { \
         logmsg("FATAL", __func__, fmt, ## args); \

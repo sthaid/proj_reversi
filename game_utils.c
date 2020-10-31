@@ -335,7 +335,10 @@ void bm_add_move(board_t *b, int move)
 
     // if there is already a book move entry for 'b' then print warning and return
     if (bm_get_move(b) != MOVE_NONE) {
-        WARN("entry already exists\n");
+        static int count;
+        if (count++ > 1000) {
+            WARN("entry already exists\n");
+        }
         pthread_mutex_unlock(&mutex);
         return;
     }

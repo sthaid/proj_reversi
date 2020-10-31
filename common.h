@@ -11,10 +11,11 @@
 #include <libgen.h>
 #include <string.h>
 #include <limits.h>
+#include <errno.h>
 #include <math.h>
 #include <pthread.h>
-#include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <sys/stat.h>
 
 #define DEBUG_PRINT_ENABLED (debug_enabled)
