@@ -138,8 +138,6 @@ void get_possible_moves(board_t *b, possible_moves_t *pm)
 
 // -----------------  BOOK MOVE SUPPORT  ------------------------------------------
 
-//XXX more comments
-
 #define MAX_BM_HASHTBL     (1 << 20)   // must be pwr of 2
 #define CRC_TO_HTIDX(crc)  ((crc) & (MAX_BM_HASHTBL-1))
 #define MAGIC_BM_FILE      0x44434241
@@ -252,7 +250,6 @@ void bm_init(bool bm_gen_mode_arg)
     }
 }
 
-// xxx comments
 int bm_get_move(board_t *b)
 {
     unsigned char pos[10][10];
@@ -261,10 +258,13 @@ int bm_get_move(board_t *b)
     bm_sig_t sig;
     bm_t *bm;
 
+    // if no bm_file then return MOVE_NONE;
+    // this supports case when bm_init has not been called
     if (bm_file == NULL) {
         return MOVE_NONE;
     }
 
+    // init variables
     memcpy(pos, b->pos, sizeof(pos));
     whose_turn = b->whose_turn;
 
@@ -275,10 +275,18 @@ int bm_get_move(board_t *b)
         }
     }
 
+    // there are 8 instances of boards that are rotated or mirror images;
+    // loop over these 8 instances
     for (i = 0; i < 8; i++) {
+        // create signature for this instance, and
         create_sig(pos, whose_turn, &sig);
-        htidx = CRC_TO_HTIDX(crc32(&sig,sizeof(sig)));
 
+        // Lookup this instance in the hasttbl.
+        // If found in the hashtbl then return the move.
+        // Since this instance is rotated/flipped the move that is returned
+        //  is converted to be consistent with the board that was passed in
+        //  to this routine.
+        htidx = CRC_TO_HTIDX(crc32(&sig,sizeof(sig)));
         bm = (bm_hashtbl[htidx] == 0 ? NULL : &bm_file[bm_hashtbl[htidx]]);
         while (bm) {
             if (memcmp(&bm->sig, &sig, sizeof(bm_sig_t)) == 0) {
@@ -288,6 +296,7 @@ int bm_get_move(board_t *b)
             bm = (bm->hashtbl_next == 0 ? NULL : &bm_file[bm->hashtbl_next]);
         }
 
+        // rotate and flip to convert pos to the next instance
         rotate(pos);
         rotate(move);
         if (i == 3) {
@@ -296,6 +305,7 @@ int bm_get_move(board_t *b)
         }
     }
 
+    // b was not found, so return MOVE_NONE
     return MOVE_NONE;
 }
 
@@ -308,7 +318,9 @@ void bm_add_move(board_t *b, int move)
 
     static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-    // this routine is single threaded
+    // this routine is single threaded because of use of global
+    // max_bm_file variable; note that the book_move_generator 
+    // uses multiple threads
     pthread_mutex_lock(&mutex);
 
     // bm_init must have been called to enable book move generator mode
@@ -316,7 +328,7 @@ void bm_add_move(board_t *b, int move)
         FATAL("bm_gen_mode must be enabled\n");
     }
 
-    // if book mark file is full then fatal error
+    // if book move file is full then fatal error
     if (max_bm_file+1 == MAX_BM_FILE) {
         FATAL("bookmark file is full, max_bm_file=%d\n", max_bm_file);
     }
@@ -357,6 +369,7 @@ void bm_add_move(board_t *b, int move)
 
 int bm_get_max_bm_file(void)
 {
+    // this is to be used for debug prints in book_move_generator.c
     return max_bm_file;
 }
 
