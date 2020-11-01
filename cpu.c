@@ -198,14 +198,31 @@ static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing
         } \
     } while (0)
 
+#define EVAL_REASONABLE_MOVES(move) \
+    do { \
+        int r,c; \
+        MOVE_TO_RC(move,r,c); \
+        if ((r == 2 && c == 2 && b->pos[1][1] == NONE) || \
+            (r == 2 && c == 7 && b->pos[1][8] == NONE) || \
+            (r == 7 && c == 2 && b->pos[8][1] == NONE) || \
+            (r == 7 && c == 7 && b->pos[8][8] == NONE)) \
+        { \
+            /* xxx not a reasonable move */ \
+        } else { \
+            reasonable_moves++; \
+        } \
+    } while (0)
 
+// XXX elim adjustable heuristic
 static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm)
 {
     int value;
     int piece_cnt_diff;
     int corner_cnt_my_color = 0, corner_cnt_other_color = 0;
     int gateway_cnt_my_color = 0, gateway_cnt_other_color = 0;
+    int reasonable_moves = 0;
     int my_color = b->whose_turn;
+    int i;
 
     if (game_over) {
         // the game is over, return a large positive or negative value, 
@@ -233,9 +250,15 @@ static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possi
         EVAL_GATEWAY_TO_CORNER(8,1, 7,2);
         EVAL_GATEWAY_TO_CORNER(8,8, 7,7);
 
+        // xxx
+        for (i = 0; i < pm->max; i++) {
+            EVAL_REASONABLE_MOVES(pm->move[i]);
+        }
+
+        // xxx comment
         value = (1000000 * (corner_cnt_my_color - corner_cnt_other_color)) +
                 (-100000 * (gateway_cnt_my_color - gateway_cnt_other_color)) +
-                (100     * pm->max);
+                (100     * reasonable_moves);
 
         // so that cpu vs cpu games are not always the same, 
         // add a random value to the value computed above during
