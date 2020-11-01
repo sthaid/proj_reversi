@@ -11,15 +11,13 @@
 // variables
 //
 
-static int (*heuristic)(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm);
-
 //
 // prototypes
 //
 
 static void create_eval_str(int eval_int, char *eval_str);
 static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing_player, int *move);
-static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm);
+static int heuristic(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm);
 
 // -----------------  CPU PLAYER - GET_MOVE ---------------------------------
 
@@ -51,7 +49,6 @@ int cpu_get_move(int level, board_t *b, char *eval_str)
     depth = rint(M * piececnt + B);
     if (depth < MIN_DEPTH[level]) depth = MIN_DEPTH[level];
 
-    heuristic = heuristic_a;
     value = alphabeta(b, depth, -INFIN, +INFIN, true, &move);
 
     create_eval_str(value, eval_str);
@@ -213,8 +210,7 @@ static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing
         } \
     } while (0)
 
-// XXX elim adjustable heuristic
-static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm)
+static int heuristic(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm)
 {
     int value;
     int piece_cnt_diff;
@@ -287,7 +283,6 @@ int cpu_book_move_generator(board_t *b)
         INFO("BOOK MOVE GENERATR DEPTH %d\n", depth);
     }
 
-    heuristic = heuristic_a;
     alphabeta(b, depth, -INFIN, +INFIN, true, &move);
     return move;
 }
