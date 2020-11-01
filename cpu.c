@@ -275,13 +275,8 @@ static int heuristic(board_t *b, bool maximizing_player, bool game_over, possibl
 
 int cpu_book_move_generator(board_t *b)
 {
-    int move, depth=12;
-    static bool first_call =true;
-
-    if (first_call) {
-        first_call = false;
-        INFO("BOOK MOVE GENERATR DEPTH %d\n", depth);
-    }
+    int depth=12;
+    int move;
 
     alphabeta(b, depth, -INFIN, +INFIN, true, &move);
     return move;
