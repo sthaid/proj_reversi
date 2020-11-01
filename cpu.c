@@ -58,26 +58,6 @@ int cpu_get_move(int level, board_t *b, char *eval_str)
     return move;
 }
 
-int cpu_book_move_generator(board_t *b)
-{
-    // suggested depth=13
-    int move, depth=13;
-
-    // PERFORMANCE ON: home computer running 2 threads
-    //            moves-per-      days-to-generate
-    // depth       minute         500,000 book-moves
-    // -----      ---------       ---------------
-    //   10          60               6
-    //   11          15              23
-    //   12          12              29
-    //   13          4.2             82
-    //   14          1.7            204
-
-    heuristic = heuristic_a;
-    alphabeta(b, depth, -INFIN, +INFIN, true, &move);
-    return move;
-}
-
 // -----------------  CREATE GAME FORECAST EVALUATION STRING  ----------------
 
 static void create_eval_str(int eval_int, char *eval_str)
@@ -270,4 +250,21 @@ static int heuristic_a(board_t *b, bool maximizing_player, bool game_over, possi
     // the returned heuristic value measures the favorability 
     // for the maximizing player
     return (maximizing_player ? value : -value);
+}
+
+// -----------------  BOOK MOVE GENERATOR  -----------------------------------------
+
+int cpu_book_move_generator(board_t *b)
+{
+    int move, depth=12;
+    static bool first_call =true;
+
+    if (first_call) {
+        first_call = false;
+        INFO("BOOK MOVE GENERATR DEPTH %d\n", depth);
+    }
+
+    heuristic = heuristic_a;
+    alphabeta(b, depth, -INFIN, +INFIN, true, &move);
+    return move;
 }
