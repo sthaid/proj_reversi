@@ -77,30 +77,32 @@ int main(int argc, char **argv)
     // wait for the threads to complete, or be interrupted by ctrl_c
     // XXX cleanup, and comments
     while (active_thread_count > 0 && ctrl_c == false) {
-        int start_bm_added, duration_bm_added;
+        int start_bm_added, intvl_bm_added;
         unsigned long start_us;
-        double duration_minutes = .01;
+        double intvl_minutes, total_minutes;
 
         start_us = microsec_timer();
         start_bm_added = bm_added;
         while (true) {
             sleep(1);
-            duration_minutes = (microsec_timer() - start_us) / (60. * 1000000);
-            if (duration_minutes > 1 || active_thread_count == 0 || ctrl_c == true) {
+            intvl_minutes = (microsec_timer() - start_us) / (60. * 1000000);
+            if (intvl_minutes > 1 || active_thread_count == 0 || ctrl_c == true) {
                 break;
             }
         }
         if (ctrl_c) {
             break;
         }
-        duration_bm_added = bm_added - start_bm_added;
+        intvl_bm_added = bm_added - start_bm_added;
+        total_minutes = (microsec_timer() - prog_start_us) / 60000000.;
 
-        INFO("max_bm_file=%d  added=%d  skipped=%d,%d  rate=%0.1f per minute\n",
+        INFO("max_bm_file=%d  added=%d  skipped=%d,%d  intvl_rate=%0.1f  overall_rate=%0.1f /min\n",
               bm_get_max_bm_file(), 
               bm_added, 
               bm_already_exists,
               bm_being_processed_by_another_thread,
-              duration_bm_added / duration_minutes);
+              intvl_bm_added / intvl_minutes,
+              bm_added / total_minutes);
     }
 
     // for caution exit with the mutex locked so that when exitting due to ctrl-c
