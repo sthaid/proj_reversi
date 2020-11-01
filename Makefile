@@ -10,7 +10,7 @@ util/util_sdl.o: CFLAGS += $(shell sdl2-config --cflags)
 SRC_REVERSI = main.c \
               human.c \
               cpu.c \
-              oldb.c \
+              oldc.c \
               game_utils.c \
               util/util_misc.c \
               util/util_sdl.c \

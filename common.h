@@ -92,7 +92,7 @@ extern char *version;
 
 int human_get_move(int level, board_t *b, char *eval_str);
 int cpu_get_move(int level, board_t *b, char *eval_str);
-int oldb_get_move(int level, board_t *b, char *eval_str);
+int oldc_get_move(int level, board_t *b, char *eval_str);
 
 bool move_cancelled(void);
 

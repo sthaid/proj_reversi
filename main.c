@@ -111,10 +111,10 @@ static int pane_hndlr(pane_cx_t *pane_cx, int request, void * init_params, sdl_e
 int main(int argc, char **argv)
 {
     #define CPU_PLAYER(lvl) &(player_t){cpu_get_move, lvl, "CPU" #lvl}
-    #define OLDB_PLAYER(lvl) &(player_t){oldb_get_move, lvl, "OLDB" #lvl}
+    #define OLDC_PLAYER(lvl) &(player_t){oldc_get_move, lvl, "OLDC" #lvl}
 
     bool          fullscreen = false;
-    bool          book_move_enabled = true;
+    bool          book_move_enabled = false;
     unsigned char opt_char;
     pthread_t     tid;
 
@@ -140,6 +140,9 @@ int main(int argc, char **argv)
             return 1;
         }
     }
+    INFO("OPTIONS:\n");
+    INFO("  fullscreen        = %d\n", fullscreen);
+    INFO("  book_move_enabled = %d\n", book_move_enabled);
 
     // init array of available players
     avail_players[0] = &(player_t){human_get_move, 0, "HUMAN"};
@@ -151,40 +154,34 @@ int main(int argc, char **argv)
     avail_players[6] = CPU_PLAYER(6);
     avail_players[7] = CPU_PLAYER(7);
     avail_players[8] = CPU_PLAYER(8);
-    avail_players[9] = OLDB_PLAYER(8);  //XXX
-    max_avail_players = 10;  //XXX
+    max_avail_players = 9;
 
     // init array of tournament mode players
-#if 1  // XXX
     tournament_players[0] = CPU_PLAYER(2);
-    tournament_players[1] = OLDB_PLAYER(2);
+    tournament_players[1] = OLDC_PLAYER(2);
     tournament_players[2] = CPU_PLAYER(3);
-    tournament_players[3] = OLDB_PLAYER(3);
+    tournament_players[3] = OLDC_PLAYER(3);
     tournament_players[4] = CPU_PLAYER(4);
-    tournament_players[5] = OLDB_PLAYER(4);
+    tournament_players[5] = OLDC_PLAYER(4);
     tournament_players[6] = CPU_PLAYER(5);
-    tournament_players[7] = OLDB_PLAYER(5);
+    tournament_players[7] = OLDC_PLAYER(5);
     tournament_players[8] = CPU_PLAYER(6);
-    tournament_players[9] = OLDB_PLAYER(6);
+    tournament_players[9] = OLDC_PLAYER(6);
     max_tournament_players = 8;
-#else
-    tournament_players[0] = CPU_PLAYER(7);
-    tournament_players[1] = CPU_PLAYER(8);
-    max_tournament_players = 2;
-#endif
 
     // read configuration file, and print values
     if (config_read(CONFIG_FILENAME, config, CONFIG_VERSION) < 0) {
         FATAL("config_read failed\n");
     }
-    INFO("CONFIG_PLAYER_BLACK_IDX_STR = %s\n", CONFIG_PLAYER_BLACK_IDX_STR);
-    INFO("CONFIG_PLAYER_WHITE_IDX_STR = %s\n", CONFIG_PLAYER_WHITE_IDX_STR);
-    INFO("CONFIG_SHOW_MOVE_YN         = %c\n", CONFIG_SHOW_MOVE_YN);
-    INFO("CONFIG_SHOW_EVAL_YN         = %c\n", CONFIG_SHOW_EVAL_YN);
+    INFO("CONFIG:\n");
+    INFO("  CONFIG_PLAYER_BLACK_IDX_STR = %s\n", CONFIG_PLAYER_BLACK_IDX_STR);
+    INFO("  CONFIG_PLAYER_WHITE_IDX_STR = %s\n", CONFIG_PLAYER_WHITE_IDX_STR);
+    INFO("  CONFIG_SHOW_MOVE_YN         = %c\n", CONFIG_SHOW_MOVE_YN);
+    INFO("  CONFIG_SHOW_EVAL_YN         = %c\n", CONFIG_SHOW_EVAL_YN);
     
     // book move initialization
-    INFO("book move is %s\n", (book_move_enabled ? "ENABLED" : "DISABLED"));
     if (book_move_enabled) {
+        INFO("XXX calling bm_init\n");
         bm_init(false);
     }
 
