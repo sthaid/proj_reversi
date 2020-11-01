@@ -132,14 +132,14 @@ void *read_asset_file(char *filename, size_t *filesize)
 
     data = malloc(statbuf.st_size);
     if (data == NULL) {
-        ERROR("malloc %zd\n", statbuf.st_size);
+        ERROR("malloc %d\n", (int)statbuf.st_size);
         close(fd);
         return NULL;
     }
 
     len = read(fd, data, statbuf.st_size);
     if (len != statbuf.st_size) {
-        ERROR("read error, len=%zd size=%zd, %s\n", len, statbuf.st_size, strerror(errno));
+        ERROR("read error, len=%zd size=%d, %s\n", len, (int)statbuf.st_size, strerror(errno));
         free(data);
         close(fd);
         return NULL;
@@ -167,7 +167,7 @@ char *progdirname(void)
 
 // -----------------  TIME UTILS  -----------------------------------------
 
-#ifndef ANDROID
+#if 0
 uint64_t tsc_timer(void)
 {
     unsigned long  tsc;

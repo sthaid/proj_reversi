@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 {
     long i;
     pthread_t thread_id;
-    unsigned long prog_start_us;
+    uint64_t prog_start_us;
     struct sigaction act;
 
     // get max_thread, in allowd range 1..MAX_THREAD
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
     // XXX cleanup, and comments
     while (active_thread_count > 0 && ctrl_c == false) {
         int start_bm_added, intvl_bm_added;
-        unsigned long start_us;
+        uint64_t start_us;
         double intvl_minutes, total_minutes;
 
         start_us = microsec_timer();

@@ -262,7 +262,7 @@ restart:
     __sync_synchronize();
 
     // loop until game is finished
-    unsigned long start_us = microsec_timer(); //xxx
+    uint64_t start_us = microsec_timer(); //xxx
     while (true) {
 again:
         // determine whose turn it is
@@ -281,7 +281,7 @@ again:
         // this may also set game_moves[].eval_str field, which is set by
         //  code in cpu.c when cpu is playing human, the eval_str is 
         //  displayed when displaying it is enabled
-        //unsigned long move_start_us = microsec_timer(); //xxx
+        //uint64_t move_start_us = microsec_timer(); //xxx
         move = player->get_move(player->level,
                                 &game_moves[max_game_moves-1].board, 
                                 game_moves[max_game_moves-1].eval_str);
