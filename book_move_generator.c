@@ -10,7 +10,8 @@
 // defines
 //
 
-#define MAX_THREAD 100
+#define MAX_THREAD         100
+#define DEFAULT_MAX_THREAD 4
 
 //#define DEBUG_BMG
 
@@ -33,6 +34,7 @@ static __thread int    tid;
 // prototypes
 //
 
+static void usage(void);
 static void signal_handler(int sig);
 static void *bm_gen_thread(void *cx);
 static void generate_book_moves(board_t *b, int depth);
@@ -47,11 +49,15 @@ int main(int argc, char **argv)
     unsigned long prog_start_us;
     struct sigaction act;
 
-    // get max_thread XXX 
-    max_thread = 2;
+    // get max_thread, in allowd range 1..MAX_THREAD
+    max_thread = DEFAULT_MAX_THREAD;
+    if (argc >= 2 && sscanf(argv[1], "%d", &max_thread) != 1) {
+        usage();
+    } 
     if (max_thread < 1 || max_thread > MAX_THREAD) {
-        FATAL("invalid max_thread %d\n",max_thread);
+        usage();
     }
+    INFO("max_thread = %d\n", max_thread);
 
     // register ctrl-c handler
     memset(&act, 0, sizeof(act));
@@ -80,7 +86,7 @@ int main(int argc, char **argv)
         while (true) {
             sleep(1);
             duration_minutes = (microsec_timer() - start_us) / (60. * 1000000);
-            if (duration_minutes > 1 || ctrl_c == true) {
+            if (duration_minutes > 1 || active_thread_count == 0 || ctrl_c == true) {
                 break;
             }
         }
@@ -126,14 +132,21 @@ int main(int argc, char **argv)
     return 0;
 }
 
-bool move_cancelled(void)
+static void usage(void)
 {
-    return false;
+    INFO("usage: book_move_generator [<max_thread>]\n");
+    INFO("          max_thread: 1..%d\n", MAX_THREAD);
+    exit(1);
 }
 
 static void signal_handler(int sig)
 {
     ctrl_c = true;
+}
+
+bool move_cancelled(void)
+{
+    return false;
 }
 
 // -----------------  BOOK MOVE GENERATOR THREAD  --------------------

@@ -60,7 +60,18 @@ int cpu_get_move(int level, board_t *b, char *eval_str)
 
 int cpu_book_move_generator(board_t *b)
 {
-    int move, depth=5;  // XXX adjust depth
+    // suggested depth=13
+    int move, depth=13;
+
+    // PERFORMANCE ON: home computer running 2 threads
+    //            moves-per-      days-to-generate
+    // depth       minute         500,000 book-moves
+    // -----      ---------       ---------------
+    //   10          60               6
+    //   11          15              23
+    //   12          12              29
+    //   13          4.2             82
+    //   14          1.7            204
 
     heuristic = heuristic_a;
     alphabeta(b, depth, -INFIN, +INFIN, true, &move);
