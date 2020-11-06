@@ -111,12 +111,22 @@ int cpu_book_move_generator(board_t *b);
 // inline procedures
 //
 
-static inline int min(int a, int b)
+static inline int32_t min32(int32_t a, int32_t b)
 {
     return a < b ? a : b;
 }
 
-static inline int max(int a, int b)
+static inline int32_t max32(int32_t a, int32_t b)
+{
+    return a > b ? a : b;
+}
+
+static inline int64_t min64(int64_t a, int64_t b)
+{
+    return a < b ? a : b;
+}
+
+static inline int64_t max64(int64_t a, int64_t b)
 {
     return a > b ? a : b;
 }

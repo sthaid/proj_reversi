@@ -4,7 +4,7 @@
 // defines
 //
 
-#define INFIN             INT_MAX
+#define INFIN             INT64_MAX
 #define RANDOMIZE_OPENING 20
 
 //
@@ -15,17 +15,18 @@
 // prototypes
 //
 
-static void create_eval_str(int eval_int, char *eval_str);
-static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing_player, int *move);
-static int heuristic(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm);
+static void create_eval_str(int64_t value, char *eval_str);
+static int64_t alphabeta(board_t *b, int depth, int64_t alpha, int64_t beta, bool maximizing_player, int *move);
+static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm);
 
 // -----------------  CPU PLAYER - GET_MOVE ---------------------------------
 
 // xxx comments needed in this routine
 int cpu_get_move(int level, board_t *b, char *eval_str)
 {
-    int    move, value, depth, piececnt;
-    double M, B;
+    int64_t value;
+    int     move, depth, piececnt;
+    double  M, B;
 
     static int MIN_DEPTH[9] =               {0,  1,  2,  3,  4,  5,  6,  7,  8 };
     static int PIECECNT_FOR_EOG_DEPTH[9]  = {0, 56, 55, 54, 53, 52, 51, 50, 49 };
@@ -57,7 +58,7 @@ int cpu_get_move(int level, board_t *b, char *eval_str)
 
 // -----------------  CREATE GAME FORECAST EVALUATION STRING  ----------------
 
-static void create_eval_str(int eval_int, char *eval_str)
+static void create_eval_str(int64_t value, char *eval_str)
 {
     if (eval_str == NULL) {
         return;
@@ -65,15 +66,15 @@ static void create_eval_str(int eval_int, char *eval_str)
 
     // eval_str should not exceed 16 char length, 
     // to avoid characters being off the window
-    if (eval_int > 10000000) {
-        sprintf(eval_str, "CPU TO WIN BY %d", eval_int-10000000);
-    } else if (eval_int == 10000000) {
+    if (value > 10000000) {
+        sprintf(eval_str, "CPU TO WIN BY %d", (int)(value-10000000));
+    } else if (value == 10000000) {
         sprintf(eval_str, "TIE");
-    } else if (eval_int < -10000000) {
-        sprintf(eval_str, "HUMAN CAN WIN BY %d", -eval_int-10000000);
-    } else if (eval_int > 50000) {
+    } else if (value < -10000000) {
+        sprintf(eval_str, "HUMAN CAN WIN BY %d", (int)(-value-10000000));
+    } else if (value > 50000) {
         sprintf(eval_str, "CPU ADVANTAGE");
-    } else if (eval_int < -50000) {
+    } else if (value < -50000) {
         sprintf(eval_str, "HUMAN ADVANTAGE");
     } else {
         eval_str[0] = '\0';
@@ -82,14 +83,15 @@ static void create_eval_str(int eval_int, char *eval_str)
 
 // -----------------  CHOOSE BEST MOVE (RECURSIVE ROUTINE)  -----------------
 
-static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing_player, int *move)
+static int64_t alphabeta(board_t *b, int depth, int64_t alpha, int64_t beta, bool maximizing_player, int *move)
 {
     #define CHILD(mv) \
         ({ b_child = *b; \
            apply_move(&b_child, mv, NULL); \
            &b_child; })
 
-    int              i, value, v, best_move = MOVE_NONE;
+    int64_t          value, v;
+    int              i, best_move = MOVE_NONE;
     board_t          b_child;
     bool             game_over;
     possible_moves_t pm;
@@ -148,7 +150,7 @@ static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing
                 value = v;
                 best_move = pm.move[i];
             }
-            alpha = max(alpha, value);
+            alpha = max64(alpha, value);
             if (alpha >= beta) {
                 break;
             }
@@ -160,7 +162,7 @@ static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing
                 value = v;
                 best_move = pm.move[i];
             }
-            beta = min(beta, value);
+            beta = min64(beta, value);
             if (beta <= alpha) {
                 break;
             }
@@ -210,9 +212,9 @@ static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing
         } \
     } while (0)
 
-static int heuristic(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm)
+static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm)
 {
-    int value;
+    int64_t value;
     int piece_cnt_diff;
     int corner_cnt_my_color = 0, corner_cnt_other_color = 0;
     int gateway_cnt_my_color = 0, gateway_cnt_other_color = 0;

@@ -150,7 +150,7 @@ static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing
                 value = v;
                 best_move = pm.move[i];
             }
-            alpha = max(alpha, value);
+            alpha = max32(alpha, value);
             if (alpha >= beta) {
                 break;
             }
@@ -162,7 +162,7 @@ static int alphabeta(board_t *b, int depth, int alpha, int beta, bool maximizing
                 value = v;
                 best_move = pm.move[i];
             }
-            beta = min(beta, value);
+            beta = min32(beta, value);
             if (beta <= alpha) {
                 break;
             }

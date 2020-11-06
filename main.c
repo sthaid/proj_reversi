@@ -333,7 +333,18 @@ again:
                    (CONFIG_SHOW_MOVE_YN == 'Y' && !tournament_game 
                     ? game_moves[max_game_moves-1].highlight : NULL));
     }
-    INFO("GAME DURATION = %0.1f secs\n", (microsec_timer() - start_us) / 1000000.);
+    { // XXX  make this a routine
+    uint64_t duration_us;
+    static uint64_t sum_duration_us;
+    static int game_count;
+
+    duration_us = microsec_timer() - start_us;
+    sum_duration_us += duration_us;
+    game_count++;
+    INFO("GAME DURATION = %0.3f secs  AVERAGE = %0.3f secs\n", 
+         duration_us/1000000.,
+         sum_duration_us/1000000./game_count);
+    }
 
     // game is over
     game_state = GAME_STATE_COMPLETE;
