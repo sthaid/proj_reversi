@@ -15,7 +15,7 @@
 #define MAX_THREAD              100
 
 #define DEFAULT_MAX_MOVE_DEPTH  9
-#define DEFAULT_MAX_THREAD      4
+#define DEFAULT_MAX_THREAD      1
 
 //
 // variables
@@ -147,7 +147,7 @@ static void *bm_gen_thread(void *cx)
     // to generate a reversi.book file with 514083 entries
     pthread_mutex_lock(&mutex);
     for (i = 0; i < max_move_depth; i++) {
-        DEBUG("%d: calling generate_book_moves for depth %d\n", tid, i);
+        INFO("%d: calling generate_book_moves for depth %d\n", tid, i);
         generate_book_moves(&b, i);
     }
     pthread_mutex_unlock(&mutex);
