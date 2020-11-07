@@ -114,7 +114,7 @@ int main(int argc, char **argv)
     #define OLDC_PLAYER(lvl) &(player_t){oldc_get_move, lvl, "OLDC" #lvl}
 
     bool          fullscreen = false;
-    bool          book_move_enabled = false;
+    bool          book_move_enabled = false; //xxx
     unsigned char opt_char;
     pthread_t     tid;
 

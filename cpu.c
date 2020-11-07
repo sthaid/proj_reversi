@@ -7,6 +7,11 @@
 #define INFIN             INT64_MAX
 #define RANDOMIZE_OPENING 20
 
+//xxx del
+//#define ONE64 ((int64_t)1)
+//#define BIT64(n)   (ONE64 << (n))
+//#define BYTE64(n)  (ONE64 << (8*(n)))
+
 //
 // variables
 //
@@ -58,6 +63,7 @@ int cpu_get_move(int level, board_t *b, char *eval_str)
 
 // -----------------  CREATE GAME FORECAST EVALUATION STRING  ----------------
 
+//xxx fix this 
 static void create_eval_str(int64_t value, char *eval_str)
 {
     if (eval_str == NULL) {
@@ -175,97 +181,128 @@ static int64_t alphabeta(board_t *b, int depth, int64_t alpha, int64_t beta, boo
 
 // -----------------  HEURISTIC  ---------------------------------------------------
 
-#define EVAL_CORNER(r,c) \
-    do { \
-        if (b->pos[r][c] == NONE) { \
-            ; \
-        } else if (b->pos[r][c] == my_color) { \
-            corner_cnt_my_color++; \
-        } else { \
-            corner_cnt_other_color++; \
-        } \
-    } while (0) 
+static inline int64_t corner_count(board_t *b, int my_color, int other_color)
+{
+    int cnt = 0;
+    if (b->pos[1][1] == my_color) cnt++;
+    if (b->pos[1][1] == other_color) cnt--;
+    if (b->pos[1][8] == my_color) cnt++;
+    if (b->pos[1][8] == other_color) cnt--;
+    if (b->pos[8][1] == my_color) cnt++;
+    if (b->pos[8][1] == other_color) cnt--;
+    if (b->pos[8][8] == my_color) cnt++;
+    if (b->pos[8][8] == other_color) cnt--;
+    return cnt;
+}
 
-#define EVAL_GATEWAY_TO_CORNER(r,c,rin,cin) \
-    do { \
-        if (b->pos[r][c] != NONE || b->pos[rin][cin] == NONE) { \
-            ; \
-        } else if (b->pos[rin][cin] == my_color) { \
-            gateway_cnt_my_color++; \
-        } else { \
-            gateway_cnt_other_color++; \
-        } \
-    } while (0)
+static inline int64_t corner_moves(board_t *b, int my_color, int other_color)
+{
+    int cnt = 0;
+    // XXX do this next
+    return cnt;
+}
 
-#define EVAL_REASONABLE_MOVES(move) \
-    do { \
-        int r,c; \
-        MOVE_TO_RC(move,r,c); \
-        if ((r == 2 && c == 2 && b->pos[1][1] == NONE) || \
-            (r == 2 && c == 7 && b->pos[1][8] == NONE) || \
-            (r == 7 && c == 2 && b->pos[8][1] == NONE) || \
-            (r == 7 && c == 7 && b->pos[8][8] == NONE)) \
-        { \
-            /* xxx not a reasonable move */ \
-        } else { \
-            reasonable_moves++; \
-        } \
-    } while (0)
+static inline int64_t diagnol_gateways_to_corner(board_t *b, int my_color, int other_color)
+{
+    int cnt = 0;
+
+    if (b->pos[1][1] == NONE) {
+        if (b->pos[2][2] == other_color) cnt++;
+        if (b->pos[2][2] == my_color) cnt--;
+    }
+    if (b->pos[1][8] == NONE) {
+        if (b->pos[2][7] == other_color) cnt++;
+        if (b->pos[2][7] == my_color) cnt--;
+    }
+    if (b->pos[8][1] == NONE) {
+        if (b->pos[7][2] == other_color) cnt++;
+        if (b->pos[7][2] == my_color) cnt--;
+    }
+    if (b->pos[8][8] == NONE) {
+        if (b->pos[7][7] == other_color) cnt++;
+        if (b->pos[7][7] == my_color) cnt--;
+    }
+
+    return cnt;
+}
+
+static inline int64_t edge_gatewas_to_corner(board_t *b, int my_color, int other_color)
+{
+    int cnt = 0;
+    return cnt;
+}
+
+static inline int64_t reasonable_moves(board_t *b, possible_moves_t *pm)
+{
+    int i, cnt = pm->max;
+
+    // XXX others, 
+    // - moves on edge that give a corner
+
+    for (i = 0; i < pm->max; i++) {
+        int r,c;
+        MOVE_TO_RC(pm->move[i],r,c);
+        if ((r == 2 && c == 2 && b->pos[1][1] == NONE) ||
+            (r == 2 && c == 7 && b->pos[1][8] == NONE) ||
+            (r == 7 && c == 2 && b->pos[8][1] == NONE) ||
+            (r == 7 && c == 7 && b->pos[8][8] == NONE))
+        {
+            cnt--;
+        }
+    }
+
+    return cnt;
+}
+
+// - - - - - - - - - - - - - - - - - - 
 
 static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm)
 {
     int64_t value;
-    int piece_cnt_diff;
-    int corner_cnt_my_color = 0, corner_cnt_other_color = 0;
-    int gateway_cnt_my_color = 0, gateway_cnt_other_color = 0;
-    int reasonable_moves = 0;
     int my_color = b->whose_turn;
-    int i;
+    int other_color = OTHER_COLOR(my_color);
 
+    // handle game over case
     if (game_over) {
+        int64_t piece_cnt_diff;
+
         // the game is over, return a large positive or negative value, 
         // incorporating by how many pieces the game has been won or lost
         piece_cnt_diff = (my_color == BLACK ? b->black_cnt - b->white_cnt
                                             : b->white_cnt - b->black_cnt);
         if (piece_cnt_diff >= 0) {
-            value =  10000000 + piece_cnt_diff;
+            value = (piece_cnt_diff+1) << 56;
         } else {
-            value = -10000000 + piece_cnt_diff;
-        }
-    } else {
-        // game is not over ...
-
-        // make count of number of corners occupied by my_color and other_color
-        EVAL_CORNER(1,1);
-        EVAL_CORNER(1,8);
-        EVAL_CORNER(8,1);
-        EVAL_CORNER(8,8);
-
-        // make count of number of squares that are diagonally adjacent to
-        // an unoccupied corner, that are occupied by my_color or other_color
-        EVAL_GATEWAY_TO_CORNER(1,1, 2,2);
-        EVAL_GATEWAY_TO_CORNER(1,8, 2,7);
-        EVAL_GATEWAY_TO_CORNER(8,1, 7,2);
-        EVAL_GATEWAY_TO_CORNER(8,8, 7,7);
-
-        // xxx
-        for (i = 0; i < pm->max; i++) {
-            EVAL_REASONABLE_MOVES(pm->move[i]);
+            value = (piece_cnt_diff-1) << 56;
         }
 
-        // xxx comment
-        value = (1000000 * (corner_cnt_my_color - corner_cnt_other_color)) +
-                (-100000 * (gateway_cnt_my_color - gateway_cnt_other_color)) +
-                (100     * reasonable_moves);
+        // the returned heuristic value measures the favorability 
+        // for the maximizing player
+        return (maximizing_player ? value : -value);
+    }
 
-        // so that cpu vs cpu games are not always the same, 
-        // add a random value to the value computed above during
-        // the early portion of the game; this random value is small
-        // enough so that it only affects the move chosen by alpha-beta
-        // when the heuristic would otherwise have been the same 
-        if (b->black_cnt + b->white_cnt < RANDOMIZE_OPENING) {
-            value += ((random() & 127) - 64);
-        }
+    // game is not over ...
+
+    // - corner count
+    // - corner moves
+    // - diagnol gateways to corner
+    // - edge gateways to corner
+    // - reasonable moves
+    // - random value so that the same move is not always chosen
+
+    // before
+    // - corner
+    // - gateway to corner
+    // - reasonable moves
+
+    value = 0;
+    value += (corner_count(b, my_color, other_color) << 48);
+    value += (corner_moves(b, my_color, other_color) << 40);
+    value += (diagnol_gateways_to_corner(b, my_color, other_color) << 32);
+    value += (edge_gatewas_to_corner(b, my_color, other_color) << 24);
+    value += (reasonable_moves(b, pm) << 16);
+    if (b->black_cnt + b->white_cnt < RANDOMIZE_OPENING) {
+        value += ((random() & 127) - 64);
     }
 
     // the returned heuristic value measures the favorability 
