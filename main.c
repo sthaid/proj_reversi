@@ -111,7 +111,7 @@ static int pane_hndlr(pane_cx_t *pane_cx, int request, void * init_params, sdl_e
 int main(int argc, char **argv)
 {
     #define CPU_PLAYER(lvl) &(player_t){cpu_get_move, lvl, "CPU" #lvl}
-    #define OLDC_PLAYER(lvl) &(player_t){oldc_get_move, lvl, "OLDC" #lvl}
+    #define OLD_PLAYER(lvl) &(player_t){old_get_move, lvl, "OLD" #lvl}
 
     bool          fullscreen = false;
     bool          book_move_enabled = false; //xxx
@@ -158,15 +158,15 @@ int main(int argc, char **argv)
 
     // init array of tournament mode players
     tournament_players[0] = CPU_PLAYER(2);
-    tournament_players[1] = OLDC_PLAYER(2);
+    tournament_players[1] = OLD_PLAYER(2);
     tournament_players[2] = CPU_PLAYER(3);
-    tournament_players[3] = OLDC_PLAYER(3);
+    tournament_players[3] = OLD_PLAYER(3);
     tournament_players[4] = CPU_PLAYER(4);
-    tournament_players[5] = OLDC_PLAYER(4);
+    tournament_players[5] = OLD_PLAYER(4);
     tournament_players[6] = CPU_PLAYER(5);
-    tournament_players[7] = OLDC_PLAYER(5);
+    tournament_players[7] = OLD_PLAYER(5);
     tournament_players[8] = CPU_PLAYER(6);
-    tournament_players[9] = OLDC_PLAYER(6);
+    tournament_players[9] = OLD_PLAYER(6);
     max_tournament_players = 8;
 
     // read configuration file, and print values
