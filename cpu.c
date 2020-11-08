@@ -307,11 +307,6 @@ static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, pos
     // - reasonable moves
     // - random value so that the same move is not always chosen
 
-    // before
-    // - corner
-    // - gateway to corner
-    // - reasonable moves
-
     value = 0;
     value += (corner_count(b, my_color, other_color) << 48);
     value += (corner_moves(b) << 40);
