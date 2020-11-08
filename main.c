@@ -158,7 +158,7 @@ int main(int argc, char **argv)
 
     // init array of tournament mode players
     // XXX
-#if 1
+#if 0
     tournament_players[0] = CPU_PLAYER(3);
     tournament_players[1] = OLD_PLAYER(3);
     tournament_players[2] = CPU_PLAYER(4);
@@ -167,8 +167,8 @@ int main(int argc, char **argv)
     tournament_players[5] = OLD_PLAYER(5);
     max_tournament_players = 6;
 #else
-    tournament_players[0] = CPU_PLAYER(6);
-    tournament_players[1] = OLD_PLAYER(6);
+    tournament_players[0] = CPU_PLAYER(5);
+    tournament_players[1] = OLD_PLAYER(5);
     max_tournament_players = 2;
 #endif
 
