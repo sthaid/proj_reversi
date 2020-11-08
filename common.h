@@ -98,6 +98,7 @@ bool move_cancelled(void);
 
 void apply_move(board_t *b, int move, unsigned char highlight[][10]);
 void get_possible_moves(board_t *b, possible_moves_t *pm);
+bool is_corner_move_possible(board_t *b, int which_corner);
 
 void bm_init(bool bm_gen_mode);
 int bm_get_move(board_t *b);

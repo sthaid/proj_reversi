@@ -15,6 +15,7 @@
 
 // -----------------  GAME BOARD SUPPORT  -----------------------------------------
 
+//                          0   1   2   3   4   5  6  7
 static int r_incr_tbl[8] = {0, -1, -1, -1,  0,  1, 1, 1};
 static int c_incr_tbl[8] = {1,  1,  0, -1, -1, -1, 0, 1};
 
@@ -134,6 +135,50 @@ void get_possible_moves(board_t *b, possible_moves_t *pm)
             }
         }
     }
+}
+
+bool is_corner_move_possible(board_t *b, int which_corner)
+{
+    static struct {
+        int r;
+        int c;
+        int incr_tbl_idx[3];
+    } tbl[4] = {         // which_corner: 
+        { 1,1, {0,6,7} },    // 0: top left
+        { 1,8, {4,6,5} },    // 1: top right
+        { 8,8, {4,2,3} },    // 2: bottom right
+        { 8,1, {0,2,1} },    // 3: bottom left
+                    };
+
+    int r, c, i, my_color, other_color;
+
+    r = tbl[which_corner].r;
+    c = tbl[which_corner].c;
+    if (b->pos[r][c] != NONE) {
+        return false;
+    }
+
+    my_color    = b->whose_turn;
+    other_color = OTHER_COLOR(my_color);
+    for (i = 0; i < 3; i++) {
+        int r_incr = r_incr_tbl[  tbl[which_corner].incr_tbl_idx[i]  ];
+        int c_incr = c_incr_tbl[  tbl[which_corner].incr_tbl_idx[i]  ];
+        int r_next = r + r_incr;
+        int c_next = c + c_incr;
+        int cnt    = 0;
+
+        while (b->pos[r_next][c_next] == other_color) {
+            r_next += r_incr;
+            c_next += c_incr;
+            cnt++;
+        }
+
+        if (cnt > 0 && b->pos[r_next][c_next] == my_color) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // -----------------  BOOK MOVE SUPPORT  ------------------------------------------

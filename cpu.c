@@ -181,6 +181,7 @@ static int64_t alphabeta(board_t *b, int depth, int64_t alpha, int64_t beta, boo
 
 // -----------------  HEURISTIC  ---------------------------------------------------
 
+// XXX get my_color from board,  and dont pass these my_color and other_color
 static inline int64_t corner_count(board_t *b, int my_color, int other_color)
 {
     int cnt = 0;
@@ -195,10 +196,24 @@ static inline int64_t corner_count(board_t *b, int my_color, int other_color)
     return cnt;
 }
 
-static inline int64_t corner_moves(board_t *b, int my_color, int other_color)
+// XXX do this next
+static inline int64_t corner_moves(board_t *b)
 {
     int cnt = 0;
-    // XXX do this next
+    int my_color = b->whose_turn;
+    int other_color = OTHER_COLOR(my_color);
+    int which_corner;
+
+    for (which_corner = 0; which_corner < 4; which_corner++) {
+        if (is_corner_move_possible(b, which_corner)) cnt++;
+    }
+
+    b->whose_turn = other_color;
+    for (which_corner = 0; which_corner < 4; which_corner++) {
+        if (is_corner_move_possible(b, which_corner)) cnt--;
+    }
+    b->whose_turn = my_color;
+
     return cnt;
 }
 
@@ -297,7 +312,7 @@ static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, pos
 
     value = 0;
     value += (corner_count(b, my_color, other_color) << 48);
-    value += (corner_moves(b, my_color, other_color) << 40);
+    value += (corner_moves(b) << 40);
     value += (diagnol_gateways_to_corner(b, my_color, other_color) << 32);
     value += (edge_gatewas_to_corner(b, my_color, other_color) << 24);
     value += (reasonable_moves(b, pm) << 16);
