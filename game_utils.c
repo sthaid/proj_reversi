@@ -139,16 +139,16 @@ void get_possible_moves(board_t *b, possible_moves_t *pm)
 
 bool is_corner_move_possible(board_t *b, int which_corner)
 {
-    // xxx just put rincr, cincr tbls in here
     static struct {
         int r;
         int c;
-        int incr_tbl_idx[3];
+        int r_incr_tbl[3];
+        int c_incr_tbl[3];
     } tbl[4] = {         // which_corner: 
-        { 1,1, {0,6,7} },    // 0: top left
-        { 1,8, {4,6,5} },    // 1: top right
-        { 8,8, {4,2,3} },    // 2: bottom right
-        { 8,1, {0,2,1} },    // 3: bottom left
+        { 1,1, {0, 1, 1}, { 1, 0, 1} },    // 0: top left
+        { 1,8, {0, 1, 1}, {-1, 0,-1} },    // 1: top right
+        { 8,8, {0,-1,-1}, {-1, 0,-1} },    // 2: bottom right
+        { 8,1, {0,-1,-1}, { 1, 0, 1} },    // 3: bottom left
                     };
 
     int r, c, i, my_color, other_color;
@@ -162,8 +162,8 @@ bool is_corner_move_possible(board_t *b, int which_corner)
     my_color    = b->whose_turn;
     other_color = OTHER_COLOR(my_color);
     for (i = 0; i < 3; i++) {
-        int r_incr = r_incr_tbl[  tbl[which_corner].incr_tbl_idx[i]  ];
-        int c_incr = c_incr_tbl[  tbl[which_corner].incr_tbl_idx[i]  ];
+        int r_incr = tbl[which_corner].r_incr_tbl[i];
+        int c_incr = tbl[which_corner].c_incr_tbl[i];
         int r_next = r + r_incr;
         int c_next = c + c_incr;
         int cnt    = 0;

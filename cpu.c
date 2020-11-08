@@ -1,16 +1,16 @@
 #include <common.h>
 
+// XXX todo
+// - comments
+// - problem with cpu to win by ?
+
 //
 // defines
 //
 
 #define INFIN             INT64_MAX
+#define ONE64             ((int64_t)1)
 #define RANDOMIZE_OPENING 20
-
-//xxx del
-//#define ONE64 ((int64_t)1)
-//#define BIT64(n)   (ONE64 << (n))
-//#define BYTE64(n)  (ONE64 << (8*(n)))
 
 //
 // variables
@@ -26,7 +26,6 @@ static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, pos
 
 // -----------------  CPU PLAYER - GET_MOVE ---------------------------------
 
-// xxx comments needed in this routine
 #ifndef OLD
 int cpu_get_move(int level, board_t *b, char *eval_str)
 #else
@@ -67,25 +66,24 @@ int old_get_move(int level, board_t *b, char *eval_str)
 
 // -----------------  CREATE GAME FORECAST EVALUATION STRING  ----------------
 
-//xxx fix this 
+// XXX fix this , and test it
+
 static void create_eval_str(int64_t value, char *eval_str)
 {
     if (eval_str == NULL) {
         return;
     }
 
-    // eval_str should not exceed 16 char length, 
-    // to avoid characters being off the window
-    if (value > 10000000) {
-        sprintf(eval_str, "CPU TO WIN BY %d", (int)(value-10000000));
-    } else if (value == 10000000) {
+
+    // note: eval_str should not exceed 16 char length, 
+    //       to avoid characters being off the window
+
+    if (value == (ONE64 << 56)) {
         sprintf(eval_str, "TIE");
-    } else if (value < -10000000) {
-        sprintf(eval_str, "HUMAN CAN WIN BY %d", (int)(-value-10000000));
-    } else if (value > 50000) {
-        sprintf(eval_str, "CPU ADVANTAGE");
-    } else if (value < -50000) {
-        sprintf(eval_str, "HUMAN ADVANTAGE");
+    } else if (value > (ONE64 << 56)) {
+        sprintf(eval_str, "CPU TO WIN BY %d", (int)((value >> 56) - 1));
+    } else if (value < -(ONE64 << 56)) {
+        sprintf(eval_str, "HUMAN CAN WIN BY %d", (int)(-(value >> 56) - 1));
     } else {
         eval_str[0] = '\0';
     }
@@ -186,6 +184,7 @@ static int64_t alphabeta(board_t *b, int depth, int64_t alpha, int64_t beta, boo
 // -----------------  HEURISTIC  ---------------------------------------------------
 
 // XXX get my_color from board,  and dont pass these my_color and other_color
+
 static inline int64_t corner_count(board_t *b, int my_color, int other_color)
 {
     int cnt = 0;
@@ -254,7 +253,7 @@ static inline int64_t reasonable_moves(board_t *b, possible_moves_t *pm)
 {
     int i, cnt = pm->max;
 
-    // XXX others, 
+    // XXX others,  
     // - moves on edge that give a corner
 
     for (i = 0; i < pm->max; i++) {
