@@ -139,6 +139,7 @@ void get_possible_moves(board_t *b, possible_moves_t *pm)
 
 bool is_corner_move_possible(board_t *b, int which_corner)
 {
+    // xxx just put rincr, cincr tbls in here
     static struct {
         int r;
         int c;
