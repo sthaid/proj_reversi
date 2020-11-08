@@ -2,7 +2,6 @@
 
 // XXX todo
 // - comments
-// - problem with cpu to win by ?
 
 //
 // defines
@@ -66,17 +65,14 @@ int old_get_move(int level, board_t *b, char *eval_str)
 
 // -----------------  CREATE GAME FORECAST EVALUATION STRING  ----------------
 
-// XXX fix this , and test it
-
 static void create_eval_str(int64_t value, char *eval_str)
 {
+    // eval_str should not exceed 16 char length, 
+    // to avoid characters being off the window
+
     if (eval_str == NULL) {
         return;
     }
-
-
-    // note: eval_str should not exceed 16 char length, 
-    //       to avoid characters being off the window
 
     if (value == (ONE64 << 56)) {
         sprintf(eval_str, "TIE");
@@ -183,11 +179,12 @@ static int64_t alphabeta(board_t *b, int depth, int64_t alpha, int64_t beta, boo
 
 // -----------------  HEURISTIC  ---------------------------------------------------
 
-// XXX get my_color from board,  and dont pass these my_color and other_color
-
-static inline int64_t corner_count(board_t *b, int my_color, int other_color)
+static inline int64_t corner_count(board_t *b)
 {
     int cnt = 0;
+    int my_color = b->whose_turn;
+    int other_color = OTHER_COLOR(my_color);
+
     if (b->pos[1][1] == my_color) cnt++;
     if (b->pos[1][1] == other_color) cnt--;
     if (b->pos[1][8] == my_color) cnt++;
@@ -219,9 +216,11 @@ static inline int64_t corner_moves(board_t *b)
     return cnt;
 }
 
-static inline int64_t diagnol_gateways_to_corner(board_t *b, int my_color, int other_color)
+static inline int64_t diagnol_gateways_to_corner(board_t *b)
 {
     int cnt = 0;
+    int my_color = b->whose_turn;
+    int other_color = OTHER_COLOR(my_color);
 
     if (b->pos[1][1] == NONE) {
         if (b->pos[2][2] == other_color) cnt++;
@@ -243,9 +242,12 @@ static inline int64_t diagnol_gateways_to_corner(board_t *b, int my_color, int o
     return cnt;
 }
 
-static inline int64_t edge_gatewas_to_corner(board_t *b, int my_color, int other_color)
+static inline int64_t edge_gatewas_to_corner(board_t *b)
 {
     int cnt = 0;
+    //int my_color = b->whose_turn;
+    //int other_color = OTHER_COLOR(my_color);
+
     return cnt;
 }
 
@@ -276,8 +278,6 @@ static inline int64_t reasonable_moves(board_t *b, possible_moves_t *pm)
 static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm)
 {
     int64_t value;
-    int my_color = b->whose_turn;
-    int other_color = OTHER_COLOR(my_color);
 
     // handle game over case
     if (game_over) {
@@ -285,8 +285,8 @@ static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, pos
 
         // the game is over, return a large positive or negative value, 
         // incorporating by how many pieces the game has been won or lost
-        piece_cnt_diff = (my_color == BLACK ? b->black_cnt - b->white_cnt
-                                            : b->white_cnt - b->black_cnt);
+        piece_cnt_diff = (b->whose_turn == BLACK ? b->black_cnt - b->white_cnt
+                                                 : b->white_cnt - b->black_cnt);
         if (piece_cnt_diff >= 0) {
             value = (piece_cnt_diff+1) << 56;
         } else {
@@ -308,10 +308,10 @@ static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, pos
     // - random value so that the same move is not always chosen
 
     value = 0;
-    value += (corner_count(b, my_color, other_color) << 48);
+    value += (corner_count(b) << 48);
     value += (corner_moves(b) << 40);
-    value += (diagnol_gateways_to_corner(b, my_color, other_color) << 32);
-    value += (edge_gatewas_to_corner(b, my_color, other_color) << 24);
+    value += (diagnol_gateways_to_corner(b) << 32);
+    value += (edge_gatewas_to_corner(b) << 24);
     value += (reasonable_moves(b, pm) << 16);
     if (b->black_cnt + b->white_cnt < RANDOMIZE_OPENING) {
         value += ((random() & 127) - 64);
