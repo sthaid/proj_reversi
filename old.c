@@ -44,6 +44,7 @@ int old_get_move(int level, board_t *b, char *eval_str)
         FATAL("invlaid level %d\n", level);
     }
 
+#if 0
     move = bm_get_move(b);
     if (move != MOVE_NONE) {
         INFO("GOT BOOK MOVE %d\n", move);  // xxx temp print
@@ -52,6 +53,7 @@ int old_get_move(int level, board_t *b, char *eval_str)
         }
         return move;
     }
+#endif
 
     piececnt = b->black_cnt + b->white_cnt;
     M = 1.0;

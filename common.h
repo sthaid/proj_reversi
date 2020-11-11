@@ -142,4 +142,14 @@ static inline int64_t max64(int64_t a, int64_t b)
     return a > b ? a : b;
 }
 
+static inline void setbit(uint8_t *bm, int idx)
+{
+    bm[idx/8] |= (1 << (idx&7));
+}
+
+static inline bool getbit(uint8_t *bm, int idx)
+{
+    return bm[idx/8] & (1 << (idx&7));
+}
+
 #endif

@@ -158,7 +158,7 @@ int main(int argc, char **argv)
 
     // init array of tournament mode players
     // XXX
-#if 0
+#if 1
     tournament_players[0] = CPU_PLAYER(3);
     tournament_players[1] = OLD_PLAYER(3);
     tournament_players[2] = CPU_PLAYER(4);
