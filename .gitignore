@@ -1,6 +1,5 @@
 *.o
 *.d
 reversi
-book_move_generator
 SDL2-2.0.12
 version.c

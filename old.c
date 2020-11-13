@@ -1,16 +1,25 @@
 #include <common.h>
 
+// XXX todo
+// - comments
+// - probably will get rid of book move
+// - make b a const  in call to alphabeta  ??
+// - segflt when exitting
+
+#if !defined(CPU_C) && !defined(OLD_C)
+#  error
+#endif
+
 //
 // defines
 //
 
 #define INFIN             INT64_MAX
-#define RANDOMIZE_OPENING 20
+#define ONE64             ((int64_t)1)
+#define RANDOMIZE_OPENING 20  // xxx increase a bit because of book move
 
-//xxx del
-//#define ONE64 ((int64_t)1)
-//#define BIT64(n)   (ONE64 << (n))
-//#define BYTE64(n)  (ONE64 << (8*(n)))
+#define BOOK_MOVE_ENABLED  (!book_move_disabled)
+#define BOOK_MOVE_GEN_MODE (book_move_gen_mode)
 
 //
 // variables
@@ -22,14 +31,15 @@
 
 static void create_eval_str(int64_t value, char *eval_str);
 static int64_t alphabeta(board_t *b, int depth, int64_t alpha, int64_t beta, bool maximizing_player, int *move);
+static void init_edge_gateway_to_corner(void);
 static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm);
 
 // -----------------  CPU PLAYER - GET_MOVE ---------------------------------
 
-// xxx comments needed in this routine
-#ifndef OLD
+#ifdef CPU_C
 int cpu_get_move(int level, board_t *b, char *eval_str)
-#else
+#endif
+#ifdef OLD_C
 int old_get_move(int level, board_t *b, char *eval_str)
 #endif
 {
@@ -40,54 +50,108 @@ int old_get_move(int level, board_t *b, char *eval_str)
     static int MIN_DEPTH[9] =               {0,  1,  2,  3,  4,  5,  6,  7,  8 };
     static int PIECECNT_FOR_EOG_DEPTH[9]  = {0, 56, 55, 54, 53, 52, 51, 50, 49 };
 
+    static bool initialized = false;
+
+    // sanity check level arg
     if (level < 1 || level > 8) {
         FATAL("invlaid level %d\n", level);
     }
 
-#if 0
-    move = bm_get_move(b);
-    if (move != MOVE_NONE) {
-        INFO("GOT BOOK MOVE %d\n", move);  // xxx temp print
-        if (eval_str) {
-            eval_str[0] = '\0';
+    // initialization
+    if (initialized == false) {
+        init_edge_gateway_to_corner();
+        initialized = true;
+    }
+    if (eval_str) {
+        eval_str[0] = '\0';
+    }
+    piececnt = b->black_cnt + b->white_cnt;
+
+#ifdef CPU_C
+    // book move lookup
+    if (BOOK_MOVE_ENABLED) {
+        move = bm_get_move(b);
+        if (move != MOVE_NONE) {
+            static int count;  // XXX temp
+            if (count++ < 40) INFO("GOT BOOK MOVE %d\n", move);  // XXX temp print
+            return move;
         }
-        return move;
     }
 #endif
 
-    piececnt = b->black_cnt + b->white_cnt;
+#ifdef OLD_C
+    // xxx comment
+    if (BOOK_MOVE_GEN_MODE) {
+        // XXX more work here
+        if (piececnt < 20 && (random() % 10) == 0) {
+            possible_moves_t pm;
+            int idx, retmove;
+            get_possible_moves(b, &pm);
+            if (pm.max == 0) {
+                return MOVE_PASS;
+            } 
+            idx = random() % pm.max;
+            retmove = pm.move[idx];
+            INFO("*** RETURN RANDOM MOVE %d color=%d***\n", retmove, b->whose_turn);
+            return retmove;
+        }
+    }
+#endif
+
+    // xxx comment
     M = 1.0;
     B = (64 - PIECECNT_FOR_EOG_DEPTH[level]) - M * PIECECNT_FOR_EOG_DEPTH[level];
     depth = rint(M * piececnt + B);
     if (depth < MIN_DEPTH[level]) depth = MIN_DEPTH[level];
 
-    value = alphabeta(b, depth, -INFIN, +INFIN, true, &move);
+#ifdef CPU_C
+    // xxx comment
+    bool book_move_being_generated = false;
+    if (BOOK_MOVE_GEN_MODE) {
+        if (b->black_cnt + b->white_cnt < 20) {
+            book_move_being_generated = true;
+            depth = 10;
+            INFO("generating book move using depth %d\n", depth);
+        }
+    }
+#endif
 
+    // xxx comment
+    value = alphabeta(b, depth, -INFIN, +INFIN, true, &move);
+    if (move_cancelled()) {
+        INFO("move_cancelled, returning MOVE_NONE\n");
+        return MOVE_NONE;
+    }
+
+#ifdef CPU_C
+    // xxx comment
+    if (book_move_being_generated) {
+        bm_add_move(b, move);
+    }
+#endif
+
+    // xxx comment
     create_eval_str(value, eval_str);
     return move;
 }
 
 // -----------------  CREATE GAME FORECAST EVALUATION STRING  ----------------
 
-//xxx fix this 
 static void create_eval_str(int64_t value, char *eval_str)
 {
+    // eval_str should not exceed 16 char length, 
+    // to avoid characters being off the window
+
     if (eval_str == NULL) {
         return;
     }
 
-    // eval_str should not exceed 16 char length, 
-    // to avoid characters being off the window
-    if (value > 10000000) {
-        sprintf(eval_str, "CPU TO WIN BY %d", (int)(value-10000000));
-    } else if (value == 10000000) {
+    if (value == (ONE64 << 56)) {
         sprintf(eval_str, "TIE");
-    } else if (value < -10000000) {
-        sprintf(eval_str, "HUMAN CAN WIN BY %d", (int)(-value-10000000));
-    } else if (value > 50000) {
-        sprintf(eval_str, "CPU ADVANTAGE");
-    } else if (value < -50000) {
-        sprintf(eval_str, "HUMAN ADVANTAGE");
+    } else if (value > (ONE64 << 56)) {
+        sprintf(eval_str, "CPU TO WIN BY %d", (int)((value >> 56) - 1));
+    } else if (value < -(ONE64 << 56)) {
+        sprintf(eval_str, "HUMAN CAN WIN BY %d", (int)(-(value >> 56) - 1));
     } else {
         eval_str[0] = '\0';
     }
@@ -187,10 +251,12 @@ static int64_t alphabeta(board_t *b, int depth, int64_t alpha, int64_t beta, boo
 
 // -----------------  HEURISTIC  ---------------------------------------------------
 
-// XXX get my_color from board,  and dont pass these my_color and other_color
-static inline int64_t corner_count(board_t *b, int my_color, int other_color)
+static inline int64_t corner_count(board_t *b)
 {
     int cnt = 0;
+    int my_color = b->whose_turn;
+    int other_color = OTHER_COLOR(my_color);
+
     if (b->pos[1][1] == my_color) cnt++;
     if (b->pos[1][1] == other_color) cnt--;
     if (b->pos[1][8] == my_color) cnt++;
@@ -222,9 +288,11 @@ static inline int64_t corner_moves(board_t *b)
     return cnt;
 }
 
-static inline int64_t diagnol_gateways_to_corner(board_t *b, int my_color, int other_color)
+static inline int64_t diagnol_gateways_to_corner(board_t *b)
 {
     int cnt = 0;
+    int my_color = b->whose_turn;
+    int other_color = OTHER_COLOR(my_color);
 
     if (b->pos[1][1] == NONE) {
         if (b->pos[2][2] == other_color) cnt++;
@@ -246,18 +314,132 @@ static inline int64_t diagnol_gateways_to_corner(board_t *b, int my_color, int o
     return cnt;
 }
 
-static inline int64_t edge_gatewas_to_corner(board_t *b, int my_color, int other_color)
+static uint8_t black_gateway_to_corner_bitmap[8192];
+static uint8_t white_gateway_to_corner_bitmap[8192];
+
+static inline int64_t edge_gateway_to_corner(board_t *b)
 {
-    int cnt = 0;
+    #define HORIZONTAL_EDGE(b, r) \
+        ((b->pos[r][1] << 14) | \
+         (b->pos[r][2] << 12) | \
+         (b->pos[r][3] << 10) | \
+         (b->pos[r][4] <<  8) | \
+         (b->pos[r][5] <<  6) | \
+         (b->pos[r][6] <<  4) | \
+         (b->pos[r][7] <<  2) | \
+         (b->pos[r][8] <<  0))
+    #define VERTICAL_EDGE(b, c) \
+        ((b->pos[1][c] << 14) | \
+         (b->pos[2][c] << 12) | \
+         (b->pos[3][c] << 10) | \
+         (b->pos[4][c] <<  8) | \
+         (b->pos[5][c] <<  6) | \
+         (b->pos[6][c] <<  4) | \
+         (b->pos[7][c] <<  2) | \
+         (b->pos[8][c] <<  0))
+
+    int       my_color    = b->whose_turn;
+    int       other_color = OTHER_COLOR(my_color);
+    int       cnt         = 0;
+    uint16_t  edge;
+    uint8_t  *my_color_gateway_to_corner_bitmap;
+    uint8_t  *other_color_gateway_to_corner_bitmap;
+
+    my_color_gateway_to_corner_bitmap = (my_color == BLACK 
+        ? black_gateway_to_corner_bitmap : white_gateway_to_corner_bitmap);
+    other_color_gateway_to_corner_bitmap = (other_color == BLACK 
+        ? black_gateway_to_corner_bitmap : white_gateway_to_corner_bitmap);
+
+    edge = HORIZONTAL_EDGE(b,1);
+    if (getbit(my_color_gateway_to_corner_bitmap,edge)) cnt++;
+    if (getbit(other_color_gateway_to_corner_bitmap,edge)) cnt--;
+
+    edge = HORIZONTAL_EDGE(b,8);
+    if (getbit(my_color_gateway_to_corner_bitmap,edge)) cnt++;
+    if (getbit(other_color_gateway_to_corner_bitmap,edge)) cnt--;
+
+    edge = VERTICAL_EDGE(b,1);
+    if (getbit(my_color_gateway_to_corner_bitmap,edge)) cnt++;
+    if (getbit(other_color_gateway_to_corner_bitmap,edge)) cnt--;
+
+    edge = VERTICAL_EDGE(b,8);
+    if (getbit(my_color_gateway_to_corner_bitmap,edge)) cnt++;
+    if (getbit(other_color_gateway_to_corner_bitmap,edge)) cnt--;
+
     return cnt;
+}
+
+static void init_edge_gateway_to_corner(void)
+{
+    #define REVERSE(x) \
+        ((((x) & 0x0003) << 14) | \
+         (((x) & 0x000c) << 10) | \
+         (((x) & 0x0030) <<  6) | \
+         (((x) & 0x00c0) <<  2) | \
+         (((x) & 0x0300) >>  2) | \
+         (((x) & 0x0c00) >>  6) | \
+         (((x) & 0x3000) >> 10) | \
+         (((x) & 0xc000) >> 14))
+
+
+    #define MAX_BLACK_GATEWAY_TO_CORNER_PATTERNS (sizeof(black_gateway_to_corner_patterns)/sizeof(char*))
+
+    static char *black_gateway_to_corner_patterns[] = {
+                ".W.W....",
+                ".W.WW...",
+                ".W.WWW..",
+                ".W.WWWW.",
+                ".WW.W...",
+                ".WW.WW..",
+                ".WW.WWW.",
+                ".WWW.W..",
+                ".WWW.WW.",
+                ".W...W..",
+                ".W...WW.",
+                ".W..B...",
+                ".WW..B..",
+                ".W.B.B..",
+                            };
+
+    int i,j;
+    uint16_t edge, edge_reversed;
+
+    for (i = 0; i < MAX_BLACK_GATEWAY_TO_CORNER_PATTERNS; i++) {
+        char *s = black_gateway_to_corner_patterns[i];
+        edge = 0;
+        for (j = 0; j < 8; j++) {
+            if (s[j] == 'W') {
+                edge |= (WHITE << (14-2*j));
+            } else if (s[j] == 'B') {
+                edge |= (BLACK << (14-2*j));
+            }
+        }
+        edge_reversed = REVERSE(edge);
+        //INFO("BLACK PATTERN  %04x  %04x\n", edge, edge_reversed);  //xxx del
+        setbit(black_gateway_to_corner_bitmap, edge);
+        setbit(black_gateway_to_corner_bitmap, edge_reversed);
+    }
+
+    for (i = 0; i < MAX_BLACK_GATEWAY_TO_CORNER_PATTERNS; i++) {
+        char *s = black_gateway_to_corner_patterns[i];
+        edge = 0;
+        for (j = 0; j < 8; j++) {
+            if (s[j] == 'W') {
+                edge |= (BLACK << (14-2*j));
+            } else if (s[j] == 'B') {
+                edge |= (WHITE << (14-2*j));
+            }
+        }
+        edge_reversed = REVERSE(edge);
+        //INFO("WHITE PATTERN  %04x  %04x\n", edge, edge_reversed);  //xxx del
+        setbit(white_gateway_to_corner_bitmap, edge);
+        setbit(white_gateway_to_corner_bitmap, edge_reversed);
+    }
 }
 
 static inline int64_t reasonable_moves(board_t *b, possible_moves_t *pm)
 {
     int i, cnt = pm->max;
-
-    // XXX others, 
-    // - moves on edge that give a corner
 
     for (i = 0; i < pm->max; i++) {
         int r,c;
@@ -279,8 +461,6 @@ static inline int64_t reasonable_moves(board_t *b, possible_moves_t *pm)
 static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm)
 {
     int64_t value;
-    int my_color = b->whose_turn;
-    int other_color = OTHER_COLOR(my_color);
 
     // handle game over case
     if (game_over) {
@@ -288,8 +468,8 @@ static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, pos
 
         // the game is over, return a large positive or negative value, 
         // incorporating by how many pieces the game has been won or lost
-        piece_cnt_diff = (my_color == BLACK ? b->black_cnt - b->white_cnt
-                                            : b->white_cnt - b->black_cnt);
+        piece_cnt_diff = (b->whose_turn == BLACK ? b->black_cnt - b->white_cnt
+                                                 : b->white_cnt - b->black_cnt);
         if (piece_cnt_diff >= 0) {
             value = (piece_cnt_diff+1) << 56;
         } else {
@@ -303,6 +483,7 @@ static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, pos
 
     // game is not over ...
 
+    // XXX comments
     // - corner count
     // - corner moves
     // - diagnol gateways to corner
@@ -310,16 +491,11 @@ static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, pos
     // - reasonable moves
     // - random value so that the same move is not always chosen
 
-    // before
-    // - corner
-    // - gateway to corner
-    // - reasonable moves
-
     value = 0;
-    value += (corner_count(b, my_color, other_color) << 48);
+    value += (corner_count(b) << 48);
     value += (corner_moves(b) << 40);
-    value += (diagnol_gateways_to_corner(b, my_color, other_color) << 32);
-    value += (edge_gatewas_to_corner(b, my_color, other_color) << 24);
+    value += (diagnol_gateways_to_corner(b) << 32);
+    value += (edge_gateway_to_corner(b) << 24);
     value += (reasonable_moves(b, pm) << 16);
     if (b->black_cnt + b->white_cnt < RANDOMIZE_OPENING) {
         value += ((random() & 127) - 64);
@@ -329,16 +505,3 @@ static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, pos
     // for the maximizing player
     return (maximizing_player ? value : -value);
 }
-
-#ifndef OLD
-// -----------------  BOOK MOVE GENERATOR  -----------------------------------------
-
-int cpu_book_move_generator(board_t *b)
-{
-    int depth=12;
-    int move;
-
-    alphabeta(b, depth, -INFIN, +INFIN, true, &move);
-    return move;
-}
-#endif

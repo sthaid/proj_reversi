@@ -210,11 +210,12 @@ typedef struct {
 } bm_t;
 
 static bm_t *bm_file;
-static int   max_bm_file;
+static int   max_bm_file; // XXX fix the hdr problem
 static int   bm_hashtbl[MAX_BM_HASHTBL];
 static bool  bm_gen_mode;
 static char  bm_filename[1000];
 
+static void bm_add_move_debug(board_t *b, int move);
 static void create_sig(unsigned char pos[][10], int whose_turn, bm_sig_t *sig);
 static void rotate(unsigned char pos[][10]);
 static void flip(unsigned char pos[][10]);
@@ -233,13 +234,17 @@ void bm_init(bool bm_gen_mode_arg)
         FATAL("sizeof bm_t = %zd\n", sizeof(bm_t));
     }
 
-    // init:
-    // - bm_gen_mode
-    // - bm_filename
+    // save bm_gen_mode_arg in file global for later use
     bm_gen_mode = bm_gen_mode_arg;
-    sprintf(bm_filename, "%s/%s", progdirname(), "reversi.book");
+
+    // debug print
+    if (bm_gen_mode) {
+        INFO("book move generator is ENABLED\n");
+    }
 
     // if running book move generator then create bm_filename if it doesn't exist
+    // XXX this needs to move to read_asset_file
+    sprintf(bm_filename, "%s/%s", progdirname(), "reversi.book");
     if (bm_gen_mode) {
         rc = stat(bm_filename, &statbuf);
         if (rc == -1 && errno == ENOENT) {
@@ -268,7 +273,7 @@ void bm_init(bool bm_gen_mode_arg)
         FATAL("invalid size %zd for asset file %s\n", filesize, bm_filename);
     }
 
-    // if running the book move generator then realloc a large bm_file,
+    // if running the book move generator then realloc a large bm_file array,
     // to support the generator adding entries
     if (bm_gen_mode) {
         bm_file = realloc(bm_file, MAX_BM_FILE*sizeof(bm_t));
@@ -362,13 +367,6 @@ void bm_add_move(board_t *b, int move)
     bm_t new_bm_ent;
     int fd, len;
 
-    static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-
-    // this routine is single threaded because of use of global
-    // max_bm_file variable; note that the book_move_generator 
-    // uses multiple threads
-    pthread_mutex_lock(&mutex);
-
     // bm_init must have been called to enable book move generator mode
     if (bm_gen_mode == false || bm_file == NULL) {
         FATAL("bm_gen_mode must be enabled\n");
@@ -379,13 +377,14 @@ void bm_add_move(board_t *b, int move)
         FATAL("bookmark file is full, max_bm_file=%d\n", max_bm_file);
     }
 
-    // if there is already a book move entry for 'b' then print warning and return
+    // move arg should never be MOVE_NONE
+    if (move == MOVE_NONE) {
+        FATAL("move arg must not be MOVE_NONE\n");
+    }
+
+    // if there is already a book move entry for 'b' then fatal error
     if (bm_get_move(b) != MOVE_NONE) {
-        static int count;
-        if (count++ > 1000) {
-            WARN("entry already exists\n");
-        }
-        pthread_mutex_unlock(&mutex);
+        FATAL("entry already exists\n");
         return;
     }
 
@@ -412,14 +411,44 @@ void bm_add_move(board_t *b, int move)
     }
     close(fd);
 
-    // unlock mutex
-    pthread_mutex_unlock(&mutex);
+    // debug print the board/move that has been added
+    bm_add_move_debug(b, move);
 }
 
-int bm_get_max_bm_file(void)
+static void bm_add_move_debug(board_t *b, int move)
 {
-    // this is to be used for debug prints in book_move_generator.c
-    return max_bm_file;
+    char line[8][50];
+    int i, r, c;
+
+    for (i = 0; i < 8; i++) {
+        strcpy(line[i], ". . . . . . . .");
+    }
+
+    for (r = 1; r <= 8; r++) {
+        for (c = 1; c <= 8; c++) {
+            if (b->pos[r][c] == WHITE) {
+                line[r-1][(c-1)*2] = 'w';
+            } else if (b->pos[r][c] == BLACK) {
+                line[r-1][(c-1)*2] = 'b';
+            }
+        }
+    }
+
+    MOVE_TO_RC(move,r,c);
+    if (b->whose_turn == WHITE) {
+        line[r-1][(c-1)*2] = 'W';
+    } else if (b->whose_turn == BLACK) {
+        line[r-1][(c-1)*2] = 'B';
+    } else {
+        FATAL("whose_turn = %d\n", b->whose_turn);
+    }
+
+    INFO("-------------------------\n");
+    INFO("adding move %02d, max_bm_file = %d\n", move, max_bm_file);
+    for (i = 0; i < 8; i++) {
+        INFO("  %s\n", line[i]);
+    }
+    INFO("-------------------------\n");
 }
 
 // --------- private  -----------------

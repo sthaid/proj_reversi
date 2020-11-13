@@ -86,6 +86,9 @@ int human_move_select;
 
 extern char *version;
 
+bool book_move_disabled;
+bool book_move_gen_mode;
+
 //
 // prototypes
 //
@@ -105,8 +108,6 @@ int bm_get_move(board_t *b);
 
 // only for use by book_move_generator ...
 void bm_add_move(board_t *b, int move);
-int bm_get_max_bm_file(void);
-int cpu_book_move_generator(board_t *b);
 
 //
 // inline procedures
@@ -150,6 +151,11 @@ static inline void setbit(uint8_t *bm, int idx)
 static inline bool getbit(uint8_t *bm, int idx)
 {
     return bm[idx/8] & (1 << (idx&7));
+}
+
+static inline char *bool2str(bool x)
+{
+    return x ? "true" : "false";
 }
 
 #endif

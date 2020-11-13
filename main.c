@@ -114,17 +114,20 @@ int main(int argc, char **argv)
     #define OLD_PLAYER(lvl) &(player_t){old_get_move, lvl, "OLD" #lvl}
 
     bool          fullscreen = false;
-    bool          book_move_enabled = false; //xxx
     unsigned char opt_char;
     pthread_t     tid;
 
     INFO("STARTING version=%s\n", version);
 
+    // XXX
+    //srandom(microsec_timer());
+
     // get options
     // -f : fullscreen
-    // -d : disable book move lookup
+    // -x : disable book move lookup
+    // -g : enable book move generator mode
     while (true) {
-        opt_char = getopt(argc, argv, "fd");
+        opt_char = getopt(argc, argv, "fxg");
         if (opt_char == 0xff) {
             break;
         }
@@ -132,8 +135,13 @@ int main(int argc, char **argv)
         case 'f':
             fullscreen = true;
             break;
-        case 'd':
-            book_move_enabled = false;
+        case 'x':
+            book_move_disabled = true;
+            book_move_gen_mode = false;
+            break;
+        case 'g':
+            book_move_disabled = false;
+            book_move_gen_mode = true;
             break;
         default:
             FATAL("invalid opt_char '%c'\n", opt_char);
@@ -141,8 +149,9 @@ int main(int argc, char **argv)
         }
     }
     INFO("OPTIONS:\n");
-    INFO("  fullscreen        = %d\n", fullscreen);
-    INFO("  book_move_enabled = %d\n", book_move_enabled);
+    INFO("  fullscreen         = %s\n", bool2str(fullscreen));
+    INFO("  book_move_disabled = %s\n", bool2str(book_move_disabled));
+    INFO("  book_move_gen_mode = %s\n", bool2str(book_move_gen_mode));
 
     // init array of available players
     avail_players[0] = &(player_t){human_get_move, 0, "HUMAN"};
@@ -157,8 +166,6 @@ int main(int argc, char **argv)
     max_avail_players = 9;
 
     // init array of tournament mode players
-    // XXX
-#if 1
     tournament_players[0] = CPU_PLAYER(3);
     tournament_players[1] = OLD_PLAYER(3);
     tournament_players[2] = CPU_PLAYER(4);
@@ -166,11 +173,6 @@ int main(int argc, char **argv)
     tournament_players[4] = CPU_PLAYER(5);
     tournament_players[5] = OLD_PLAYER(5);
     max_tournament_players = 6;
-#else
-    tournament_players[0] = CPU_PLAYER(5);
-    tournament_players[1] = OLD_PLAYER(5);
-    max_tournament_players = 2;
-#endif
 
     // read configuration file, and print values
     if (config_read(CONFIG_FILENAME, config, CONFIG_VERSION) < 0) {
@@ -183,9 +185,8 @@ int main(int argc, char **argv)
     INFO("  CONFIG_SHOW_EVAL_YN         = %c\n", CONFIG_SHOW_EVAL_YN);
     
     // book move initialization
-    if (book_move_enabled) {
-        INFO("XXX calling bm_init\n");
-        bm_init(false);
+    if (book_move_disabled == false) {
+        bm_init(book_move_gen_mode);
     }
 
     // create game_thread, and

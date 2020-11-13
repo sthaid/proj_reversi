@@ -3,6 +3,12 @@
 // XXX todo
 // - comments
 // - probably will get rid of book move
+// - make b a const  in call to alphabeta  ??
+// - segflt when exitting
+
+#if !defined(CPU_C) && !defined(OLD_C)
+#  error
+#endif
 
 //
 // defines
@@ -10,7 +16,10 @@
 
 #define INFIN             INT64_MAX
 #define ONE64             ((int64_t)1)
-#define RANDOMIZE_OPENING 20
+#define RANDOMIZE_OPENING 20  // xxx increase a bit because of book move
+
+#define BOOK_MOVE_ENABLED  (!book_move_disabled)
+#define BOOK_MOVE_GEN_MODE (book_move_gen_mode)
 
 //
 // variables
@@ -27,9 +36,10 @@ static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, pos
 
 // -----------------  CPU PLAYER - GET_MOVE ---------------------------------
 
-#ifndef OLD
+#ifdef CPU_C
 int cpu_get_move(int level, board_t *b, char *eval_str)
-#else
+#endif
+#ifdef OLD_C
 int old_get_move(int level, board_t *b, char *eval_str)
 #endif
 {
@@ -42,36 +52,85 @@ int old_get_move(int level, board_t *b, char *eval_str)
 
     static bool initialized = false;
 
+    // sanity check level arg
     if (level < 1 || level > 8) {
         FATAL("invlaid level %d\n", level);
     }
 
+    // initialization
     if (initialized == false) {
-        // XXX multi threaded support
         init_edge_gateway_to_corner();
         initialized = true;
     }
+    if (eval_str) {
+        eval_str[0] = '\0';
+    }
+    piececnt = b->black_cnt + b->white_cnt;
 
-#ifndef OLD
-    move = bm_get_move(b);
-    if (move != MOVE_NONE) {
-        static int count;
-        if (count++ < 40) INFO("GOT BOOK MOVE %d\n", move);  // XXX temp print
-        if (eval_str) {
-            eval_str[0] = '\0';
+#ifdef CPU_C
+    // book move lookup
+    if (BOOK_MOVE_ENABLED) {
+        move = bm_get_move(b);
+        if (move != MOVE_NONE) {
+            static int count;  // XXX temp
+            if (count++ < 40) INFO("GOT BOOK MOVE %d\n", move);  // XXX temp print
+            return move;
         }
-        return move;
     }
 #endif
 
-    piececnt = b->black_cnt + b->white_cnt;
+#ifdef OLD_C
+    // xxx comment
+    if (BOOK_MOVE_GEN_MODE) {
+        // XXX more work here
+        if (piececnt < 20 && (random() % 10) == 0) {
+            possible_moves_t pm;
+            int idx, retmove;
+            get_possible_moves(b, &pm);
+            if (pm.max == 0) {
+                return MOVE_PASS;
+            } 
+            idx = random() % pm.max;
+            retmove = pm.move[idx];
+            INFO("*** RETURN RANDOM MOVE %d color=%d***\n", retmove, b->whose_turn);
+            return retmove;
+        }
+    }
+#endif
+
+    // xxx comment
     M = 1.0;
     B = (64 - PIECECNT_FOR_EOG_DEPTH[level]) - M * PIECECNT_FOR_EOG_DEPTH[level];
     depth = rint(M * piececnt + B);
     if (depth < MIN_DEPTH[level]) depth = MIN_DEPTH[level];
 
-    value = alphabeta(b, depth, -INFIN, +INFIN, true, &move);
+#ifdef CPU_C
+    // xxx comment
+    bool book_move_being_generated = false;
+    if (BOOK_MOVE_GEN_MODE) {
+        if (b->black_cnt + b->white_cnt < 20) {
+            book_move_being_generated = true;
+            depth = 10;
+            INFO("generating book move using depth %d\n", depth);
+        }
+    }
+#endif
 
+    // xxx comment
+    value = alphabeta(b, depth, -INFIN, +INFIN, true, &move);
+    if (move_cancelled()) {
+        INFO("move_cancelled, returning MOVE_NONE\n");
+        return MOVE_NONE;
+    }
+
+#ifdef CPU_C
+    // xxx comment
+    if (book_move_being_generated) {
+        bm_add_move(b, move);
+    }
+#endif
+
+    // xxx comment
     create_eval_str(value, eval_str);
     return move;
 }
@@ -356,7 +415,7 @@ static void init_edge_gateway_to_corner(void)
             }
         }
         edge_reversed = REVERSE(edge);
-        INFO("BLACK PATTERN  %04x  %04x\n", edge, edge_reversed);  //XXX del
+        //INFO("BLACK PATTERN  %04x  %04x\n", edge, edge_reversed);  //xxx del
         setbit(black_gateway_to_corner_bitmap, edge);
         setbit(black_gateway_to_corner_bitmap, edge_reversed);
     }
@@ -372,7 +431,7 @@ static void init_edge_gateway_to_corner(void)
             }
         }
         edge_reversed = REVERSE(edge);
-        INFO("WHITE PATTERN  %04x  %04x\n", edge, edge_reversed);  //XXX del
+        //INFO("WHITE PATTERN  %04x  %04x\n", edge, edge_reversed);  //xxx del
         setbit(white_gateway_to_corner_bitmap, edge);
         setbit(white_gateway_to_corner_bitmap, edge_reversed);
     }
@@ -446,16 +505,3 @@ static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, pos
     // for the maximizing player
     return (maximizing_player ? value : -value);
 }
-
-#ifndef OLD
-// -----------------  BOOK MOVE GENERATOR  -----------------------------------------
-
-int cpu_book_move_generator(board_t *b)
-{
-    int depth=12;
-    int move;
-
-    alphabeta(b, depth, -INFIN, +INFIN, true, &move);
-    return move;
-}
-#endif
