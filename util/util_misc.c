@@ -105,27 +105,71 @@ void logmsg(char *lvl, const char *func, char *fmt, ...)
 }
 #endif
 
-// -----------------  READ ASSET FILE  -----------------------------------
+// -----------------  ASSET FILE SUPPORT  --------------------------------
 
 //XXX update these for android
-void *read_asset_file(char *filename, size_t *filesize)
+
+#ifndef ANDROID
+static char *assetname_to_pathname(char *assetname, char *pathname);
+
+bool does_asset_file_exist(char *assetname)
+{
+    char pathname[500];
+    int rc;
+    struct stat statbuf;
+
+    assetname_to_pathname(assetname, pathname);
+
+    rc = stat(pathname, &statbuf);
+
+    if (rc == -1 && errno == ENOENT) {
+        return false;
+    } else if (rc == 0 && S_ISREG(statbuf.st_mode)) {
+        return true;
+    } else {
+        FATAL("pathname %s, rc=%d, st_mode=0x%x, %s\n",
+              pathname, rc, statbuf.st_mode, strerror(errno));
+    }
+}
+
+void create_asset_file(char *assetname)
+{
+    char pathname[500];
+    int fd;
+
+    assetname_to_pathname(assetname, pathname);
+
+    INFO("creating %s\n", pathname);
+
+    fd = open(pathname, O_CREAT|O_EXCL|O_RDWR, 0644);
+    if (fd < 0) {
+        FATAL("pathname %s, %s\n", pathname, strerror(errno));
+    }
+
+    close(fd);
+}
+
+void *read_asset_file(char *assetname, size_t *assetsize)
 {
     int rc, fd;
     size_t len;
     struct stat statbuf;
     void *data;
+    char pathname[500];
 
-    *filesize = 0;
+    *assetsize = 0;
 
-    fd = open(filename, O_RDONLY);
+    assetname_to_pathname(assetname, pathname);
+
+    fd = open(pathname, O_RDONLY);
     if (fd < 0) {
-        ERROR("open error on %s, %s\n", filename, strerror(errno));
+        ERROR("open error on %s, %s\n", pathname, strerror(errno));
         return NULL;
     }
 
     rc = fstat(fd, &statbuf);
     if (rc != 0) {
-        ERROR("stat error on %s, %s\n", filename, strerror(errno));
+        ERROR("stat error on %s, %s\n", pathname, strerror(errno));
         close(fd);
         return NULL;
     }
@@ -146,22 +190,48 @@ void *read_asset_file(char *filename, size_t *filesize)
     }
 
     close(fd);
-    *filesize = statbuf.st_size;
+    *assetsize = statbuf.st_size;
     return data;
 }
 
-#ifndef ANDROID
-char *progdirname(void) 
+void write_asset_file(char *assetname, void *data, size_t datalen)
 {
-    static char buf[1000];
-    int rc;
+    int fd;
+    ssize_t len;
+    char pathname[500];
 
-    rc = readlink("/proc/self/exe", buf, sizeof(buf));
-    if (rc < 0) {
-        FATAL("readlink, %s\n", strerror(errno));
+    assetname_to_pathname(assetname, pathname);
+
+    if ((fd = open(pathname, O_WRONLY)) < 0) {
+        FATAL("open %s error, %s\n", pathname, strerror(errno));
     }
 
-    return dirname(buf);
+    lseek(fd, 0, SEEK_END);
+
+    len = write(fd, data, datalen);
+    if (len != datalen) {
+        FATAL("write error, len=%zd, %s\n", len, strerror(errno));
+    }
+
+    close(fd);
+}
+
+static char *assetname_to_pathname(char *assetname, char *pathname)
+{
+    static char progdirname[300];
+
+    if (progdirname[0] == '\0') {
+        char tmp[300], *p;
+        if (readlink("/proc/self/exe", tmp, sizeof(tmp)) < 0) {
+            FATAL("readlink, %s\n", strerror(errno));
+        }
+        p = dirname(tmp);
+        strcpy(progdirname, p);
+    }
+
+    sprintf(pathname, "%s/%s", progdirname, assetname);
+
+    return pathname;
 }
 #endif
 

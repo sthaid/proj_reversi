@@ -184,10 +184,11 @@ bool is_corner_move_possible(board_t *b, int which_corner)
 
 // -----------------  BOOK MOVE SUPPORT  ------------------------------------------
 
-#define MAX_BM_HASHTBL     (1 << 20)   // must be pwr of 2
+#define BM_ASSETNAME       "reversi.book"
+#define MAX_BM_HASHTBL     (1 << 16)   // must be pwr of 2
 #define CRC_TO_HTIDX(crc)  ((crc) & (MAX_BM_HASHTBL-1))
 #define MAGIC_BM_FILE      0x44434241
-#define MAX_BM_FILE        10000000
+#define MAX_BM_FILE        100000
 
 // must be invoked with a bm that is part of bm_file
 #define ADD_BM_TO_HASHTBL(bm) \
@@ -213,21 +214,19 @@ static bm_t *bm_file;
 static int   max_bm_file; // XXX fix the hdr problem
 static int   bm_hashtbl[MAX_BM_HASHTBL];
 static bool  bm_gen_mode;
-static char  bm_filename[1000];
 
-static void bm_add_move_debug(board_t *b, int move);
 static void create_sig(unsigned char pos[][10], int whose_turn, bm_sig_t *sig);
 static void rotate(unsigned char pos[][10]);
 static void flip(unsigned char pos[][10]);
 static unsigned int crc32(const void *buf, size_t size);
+static void bm_add_move_debug(board_t *b, int move);
 
 // --------- public  -----------------
 
 void bm_init(bool bm_gen_mode_arg)
 {
     size_t filesize;
-    int i, rc, fd;
-    struct stat statbuf;
+    int i;
 
     // expect sizeof bm_t to be 32
     if (sizeof(bm_t) != 32) {
@@ -242,35 +241,26 @@ void bm_init(bool bm_gen_mode_arg)
         INFO("book move generator is ENABLED\n");
     }
 
-    // if running book move generator then create bm_filename if it doesn't exist
-    // XXX this needs to move to read_asset_file
-    sprintf(bm_filename, "%s/%s", progdirname(), "reversi.book");
-    if (bm_gen_mode) {
-        rc = stat(bm_filename, &statbuf);
-        if (rc == -1 && errno == ENOENT) {
-            INFO("creating empty %s\n", bm_filename);
-            static bm_t hdr;
-            *(int*)&hdr = MAGIC_BM_FILE;
-            if ((fd = open(bm_filename, O_CREAT|O_EXCL|O_WRONLY, 0644)) < 0) {
-                FATAL("oepn to create %s, %s\n", bm_filename, strerror(errno));
-            }
-            write(fd, &hdr, sizeof(hdr));
-            close(fd);
-        } else if (rc == -1) {
-            FATAL("stat %s, %s\n", bm_filename, strerror(errno));
-        }
+    // if running book move generator and asset file does not exist then
+    // create the asset file and write it's hdr
+    if (bm_gen_mode && does_asset_file_exist(BM_ASSETNAME) == false) {
+        static bm_t hdr;
+        *(int*)&hdr = MAGIC_BM_FILE;
+        INFO("creating empty %s\n", BM_ASSETNAME);
+        create_asset_file(BM_ASSETNAME);
+        write_asset_file(BM_ASSETNAME, &hdr, sizeof(hdr));
     }
-
-    // read bm_filename
-    bm_file = read_asset_file(bm_filename, &filesize);
+            
+    // read book move file
+    bm_file = read_asset_file(BM_ASSETNAME, &filesize);
     if (bm_file == NULL) {
-        FATAL("failed read asset file %s\n", bm_filename);
+        FATAL("assetfile %s, failed read\n", BM_ASSETNAME);
     }
 
     // validate filesize, which must not be 0 becuase there should be at least
     // the header; and must be a multiple of sizeof(bm_t)
     if ((filesize == 0) || (filesize % sizeof(bm_t))) {   
-        FATAL("invalid size %zd for asset file %s\n", filesize, bm_filename);
+        FATAL("assetfile %s, invalid size %zd\n", BM_ASSETNAME, filesize);
     }
 
     // if running the book move generator then realloc a large bm_file array,
@@ -286,7 +276,7 @@ void bm_init(bool bm_gen_mode_arg)
     // which just contains a magic number;
     // verify file magic number
     if (*(int*)bm_file != MAGIC_BM_FILE) {
-        FATAL("bm_file %s invalid magic 0x%x\n", bm_filename, *(int*)bm_file);
+        FATAL("assetfile %s, invalid magic 0x%x\n", BM_ASSETNAME, *(int*)bm_file);
     }
 
     // set max_bm_file with the number of entries in the file;
@@ -360,12 +350,9 @@ int bm_get_move(board_t *b)
     return MOVE_NONE;
 }
 
-// --------- public - for book_move_generator use only ------------
-
 void bm_add_move(board_t *b, int move)
 {
     bm_t new_bm_ent;
-    int fd, len;
 
     // bm_init must have been called to enable book move generator mode
     if (bm_gen_mode == false || bm_file == NULL) {
@@ -400,55 +387,16 @@ void bm_add_move(board_t *b, int move)
     ADD_BM_TO_HASHTBL(&bm_file[max_bm_file+1]);
     max_bm_file++;
 
-    // write the bm_t to the bm_filename
-    if ((fd = open(bm_filename, O_WRONLY)) < 0) {
-        FATAL("open error, %s\n", strerror(errno));
-    }
-    lseek(fd, 0, SEEK_END);
-    len = write(fd, &new_bm_ent, sizeof(bm_t));
-    if (len != sizeof(bm_t)) {
-        FATAL("write error, len=%d, %s\n", len, strerror(errno));
-    }
-    close(fd);
+    // write the bm_t to the end of the book move asset file
+    write_asset_file(BM_ASSETNAME, &new_bm_ent, sizeof(bm_t));
 
     // debug print the board/move that has been added
     bm_add_move_debug(b, move);
 }
 
-static void bm_add_move_debug(board_t *b, int move)
+int get_max_bm_file(void)
 {
-    char line[8][50];
-    int i, r, c;
-
-    for (i = 0; i < 8; i++) {
-        strcpy(line[i], ". . . . . . . .");
-    }
-
-    for (r = 1; r <= 8; r++) {
-        for (c = 1; c <= 8; c++) {
-            if (b->pos[r][c] == WHITE) {
-                line[r-1][(c-1)*2] = 'w';
-            } else if (b->pos[r][c] == BLACK) {
-                line[r-1][(c-1)*2] = 'b';
-            }
-        }
-    }
-
-    MOVE_TO_RC(move,r,c);
-    if (b->whose_turn == WHITE) {
-        line[r-1][(c-1)*2] = 'W';
-    } else if (b->whose_turn == BLACK) {
-        line[r-1][(c-1)*2] = 'B';
-    } else {
-        FATAL("whose_turn = %d\n", b->whose_turn);
-    }
-
-    INFO("-------------------------\n");
-    INFO("adding move %02d, max_bm_file = %d\n", move, max_bm_file);
-    for (i = 0; i < 8; i++) {
-        INFO("  %s\n", line[i]);
-    }
-    INFO("-------------------------\n");
+    return max_bm_file;
 }
 
 // --------- private  -----------------
@@ -563,3 +511,40 @@ static uint32_t crc32(const void *buf, size_t size)
     }
     return crc ^ ~0U;
 }
+
+static void bm_add_move_debug(board_t *b, int move)
+{
+    char line[8][50];
+    int i, r, c;
+
+    for (i = 0; i < 8; i++) {
+        strcpy(line[i], ". . . . . . . .");
+    }
+
+    for (r = 1; r <= 8; r++) {
+        for (c = 1; c <= 8; c++) {
+            if (b->pos[r][c] == WHITE) {
+                line[r-1][(c-1)*2] = 'w';
+            } else if (b->pos[r][c] == BLACK) {
+                line[r-1][(c-1)*2] = 'b';
+            }
+        }
+    }
+
+    MOVE_TO_RC(move,r,c);
+    if (b->whose_turn == WHITE) {
+        line[r-1][(c-1)*2] = 'W';
+    } else if (b->whose_turn == BLACK) {
+        line[r-1][(c-1)*2] = 'B';
+    } else {
+        FATAL("whose_turn = %d\n", b->whose_turn);
+    }
+
+    INFO("-------------------------\n");
+    INFO("adding move %02d, max_bm_file = %d\n", move, max_bm_file);
+    for (i = 0; i < 8; i++) {
+        INFO("  %s\n", line[i]);
+    }
+    INFO("-------------------------\n");
+}
+

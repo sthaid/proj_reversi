@@ -81,10 +81,13 @@
 
 void logmsg(char * lvl, const char * func, char * fmt, ...) __attribute__ ((format (printf, 3, 4)));
 
-// -----------------  READ ASSET FILE  -----------------------------------
+// -----------------  ASSET FILE SUPPORT  --------------------------------
 
-void *read_asset_file(char *filename, size_t *filesize);
-char *progdirname(void);
+bool does_asset_file_exist(char *assetname);
+void create_asset_file(char *assetname);
+void *read_asset_file(char *assetname, size_t *assetsize);
+void write_asset_file(char *assetname, void *data, size_t datalen);
+;
 
 // -----------------  TIME  --------------------------------------
 

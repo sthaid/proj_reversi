@@ -73,7 +73,7 @@ int old_get_move(int level, board_t *b, char *eval_str)
         move = bm_get_move(b);
         if (move != MOVE_NONE) {
             static int count;  // XXX temp
-            if (count++ < 40) INFO("GOT BOOK MOVE %d\n", move);  // XXX temp print
+            if (count++ < 40) INFO("XXX GOT BOOK MOVE %d\n", move);  // XXX temp print
             return move;
         }
     }
@@ -81,20 +81,19 @@ int old_get_move(int level, board_t *b, char *eval_str)
 
 #ifdef OLD_C
     // xxx comment
-    if (BOOK_MOVE_GEN_MODE) {
-        // XXX more work here
-        if (piececnt < 20 && (random() % 10) == 0) {
-            possible_moves_t pm;
-            int idx, retmove;
-            get_possible_moves(b, &pm);
-            if (pm.max == 0) {
-                return MOVE_PASS;
-            } 
-            idx = random() % pm.max;
-            retmove = pm.move[idx];
-            INFO("*** RETURN RANDOM MOVE %d color=%d***\n", retmove, b->whose_turn);
-            return retmove;
-        }
+    if (BOOK_MOVE_GEN_MODE &&
+        get_max_bm_file() > 600 && 
+        piececnt < 20 &&   // xxx need defines in here for '20' and others
+        (random() % 10) == 0) 
+    {
+        possible_moves_t pm;
+        get_possible_moves(b, &pm);
+        if (pm.max == 0) {
+            return MOVE_PASS;
+        } 
+        move = pm.move[ random()%pm.max ];
+        INFO("bmgen - random move %d color=%d***\n", move, b->whose_turn);
+        return move;
     }
 #endif
 
@@ -111,7 +110,7 @@ int old_get_move(int level, board_t *b, char *eval_str)
         if (b->black_cnt + b->white_cnt < 20) {
             book_move_being_generated = true;
             depth = 10;
-            INFO("generating book move using depth %d\n", depth);
+            INFO("bmgen - generating book move using depth %d\n", depth);
         }
     }
 #endif

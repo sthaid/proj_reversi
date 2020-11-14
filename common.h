@@ -105,6 +105,7 @@ bool is_corner_move_possible(board_t *b, int which_corner);
 
 void bm_init(bool bm_gen_mode);
 int bm_get_move(board_t *b);
+int get_max_bm_file(void);
 
 // only for use by book_move_generator ...
 void bm_add_move(board_t *b, int move);
