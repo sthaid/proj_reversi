@@ -81,11 +81,11 @@ static int                 max_game_moves;
 
 static player_t           *player_black;
 static player_t           *player_white;
-static player_t           *avail_players[100];
+static player_t            avail_players[30];
 static int                 max_avail_players;
 
 static tournament_t        tournament;
-static player_t           *tournament_players[100];
+static player_t            tournament_players[30];
 static int                 max_tournament_players;
 
 static config_t            config[] = { { "player_black_idx",   "0" },
@@ -110,9 +110,8 @@ static int pane_hndlr(pane_cx_t *pane_cx, int request, void * init_params, sdl_e
 
 int main(int argc, char **argv)
 {
-    // xxx don't use ptr here
-    #define CPU_PLAYER(lvl) &(player_t){cpu_get_move, lvl, "CPU" #lvl}
-    #define OLD_PLAYER(lvl) &(player_t){old_get_move, lvl, "OLD" #lvl}
+    #define CPU_PLAYER(lvl) (player_t){cpu_get_move, lvl, "CPU" #lvl}
+    #define OLD_PLAYER(lvl) (player_t){old_get_move, lvl, "OLD" #lvl}
 
     unsigned char opt_char;
     pthread_t     tid;
@@ -154,7 +153,7 @@ int main(int argc, char **argv)
     INFO("  opt_book_move_gen_mode = %s\n", bool2str(opt_book_move_gen_mode));
 
     // init array of available players
-    avail_players[0] = &(player_t){human_get_move, 0, "HUMAN"};
+    avail_players[0] = (player_t){human_get_move, 0, "HUMAN"};
     avail_players[1] = CPU_PLAYER(1);
     avail_players[2] = CPU_PLAYER(2);
     avail_players[3] = CPU_PLAYER(3);
@@ -211,7 +210,7 @@ int main(int argc, char **argv)
         pane_hndlr, NULL, 0, 0, win_width, win_height, PANE_BORDER_STYLE_NONE);
 
     // wait for thread to terminate here
-    // xxx
+    // XXX maybe not needed
 
     // program terminating
     INFO("TERMINATING\n");
@@ -390,8 +389,8 @@ static void game_mode_get_players(player_t **pb, player_t **pw)
         FATAL("config pwidx %d invalid\n", pwidx);
     }
 
-    *pb = avail_players[pbidx];
-    *pw = avail_players[pwidx];
+    *pb = &avail_players[pbidx];
+    *pw = &avail_players[pwidx];
 }
 
 static void tournament_get_players(player_t **pb, player_t **pw)
@@ -402,8 +401,8 @@ static void tournament_get_players(player_t **pb, player_t **pw)
         tournament.select_idx++;
     } while (tournament.pb_idx == tournament.pw_idx);
 
-    *pb = tournament_players[tournament.pb_idx];
-    *pw = tournament_players[tournament.pw_idx];
+    *pb = &tournament_players[tournament.pb_idx];
+    *pw = &tournament_players[tournament.pw_idx];
 }
 
 static void tournament_tally_game_result(void)
@@ -797,7 +796,7 @@ static void render_game_choose_player_mode(pane_cx_t *pane_cx)
                        (i/2) * 2,            // row
                        (i%2) * (CTL_COLS/2), // col
                        SDL_EVENT_CHOOSE_PLAYER_SELECT + i,
-                       "%s", avail_players[i]->name);
+                       "%s", avail_players[i].name);
     }
 }
 
@@ -840,7 +839,7 @@ static void render_tournament_mode(pane_cx_t *pane_cx)
     for (i = 0; i < max_tournament_players; i++) {
         print(pane_cx, 3+i, 0, 
               "%5s : %3.0f %%",
-              tournament_players[i]->name,
+              tournament_players[i].name,
               100. * tournament.games_won[i] / tournament.games_played[i]);
     }
 
