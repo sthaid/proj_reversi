@@ -87,7 +87,6 @@ bool does_asset_file_exist(char *assetname);
 void create_asset_file(char *assetname);
 void *read_asset_file(char *assetname, size_t *assetsize);
 void write_asset_file(char *assetname, void *data, size_t datalen);
-;
 
 // -----------------  TIME  --------------------------------------
 

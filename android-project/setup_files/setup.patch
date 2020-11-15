@@ -14,7 +14,7 @@
  
  # Add your application source files here...
 -LOCAL_SRC_FILES :=  stub.c
-+LOCAL_SRC_FILES :=  main.c human.c cpu.c olda.c util_sdl.c util_misc.c version.c
++LOCAL_SRC_FILES :=  main.c human.c cpu.c old.c game_utils.c util_sdl.c util_misc.c version.c
  
 -LOCAL_SHARED_LIBRARIES := SDL2
 +LOCAL_SHARED_LIBRARIES := SDL2 SDL2_ttf

@@ -7,9 +7,6 @@ CFLAGS = -Wall -g -O2 -Iutil -I.
 util/util_sdl.o: CFLAGS += $(shell sdl2-config --cflags)
 #util/util_sdl.o: CFLAGS += -DENABLE_UTIL_SDL_BUTTON_SOUND
 
-old.o: CFLAGS += -DOLD_C
-cpu.o: CFLAGS += -DCPU_C
-
 SRC_REVERSI = main.c \
               human.c \
               cpu.c \

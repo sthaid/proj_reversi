@@ -41,12 +41,20 @@ rm stub.c
 ln -s ../../../../../../../main.c .
 ln -s ../../../../../../../human.c .
 ln -s ../../../../../../../cpu.c .
-ln -s ../../../../../../../olda.c .
+ln -s ../../../../../../../old.c .
+ln -s ../../../../../../../game_utils.c .
 ln -s ../../../../../../../common.h .
 ln -s ../../../../../../../help.h .
 ln -s ../../../../../../../util/util_sdl.[ch] .
 ln -s ../../../../../../../util/util_misc.[ch] .
 echo
+
+# $BUILD/app/src/main: create assets dir, and create link assets/reversi.book
+echo "Creating assets directory"
+cd $BUILD/app/src/main
+mkdir assets
+cd assets
+ln -s ../../../../../../../../reversi.book .
 
 # patch the following files:
 # - $BUILD/app/jni/src/Android.mk  

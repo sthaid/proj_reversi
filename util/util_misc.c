@@ -233,6 +233,29 @@ static char *assetname_to_pathname(char *assetname, char *pathname)
 
     return pathname;
 }
+#else  // ANDROID follows
+
+bool does_asset_file_exist(char *assetname)
+{
+    FATAL("not supported\n");
+    return true;
+}
+
+void create_asset_file(char *assetname)
+{
+    FATAL("not supported\n");
+}
+
+void *read_asset_file(char *assetname, size_t *assetsize)
+{
+    return SDL_LoadFile(assetname, assetsize);
+}
+
+void write_asset_file(char *assetname, void *data, size_t datalen)
+{
+    FATAL("not supported\n");
+}
+
 #endif
 
 // -----------------  TIME UTILS  -----------------------------------------

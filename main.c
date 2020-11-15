@@ -120,7 +120,7 @@ int main(int argc, char **argv)
     INFO("STARTING version=%s\n", version);
 
     // XXX
-    //srandom(microsec_timer());
+    srandom(microsec_timer());
 
     // get options
     // -f : fullscreen
@@ -890,7 +890,7 @@ static void render_help_mode(pane_cx_t *pane_cx)
     // on first call divide the help_text into lines, and
     // add a first line for the program Version
     if (first_call) {
-        sprintf(version_line, "Version: %s", version);
+        sprintf(version_line, "Version: %s %d", version, get_max_bm_file());
         lines[max_help_line++] = version_line;
 
         p = help_text;

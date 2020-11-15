@@ -6,6 +6,8 @@
 // - make b a const  in call to alphabeta  ??
 // - segflt when exitting
 
+#define CPU_C
+
 #if !defined(CPU_C) && !defined(OLD_C)
 #  error
 #endif
