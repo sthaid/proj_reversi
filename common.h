@@ -18,7 +18,6 @@
 #include <signal.h>
 #include <sys/stat.h>
 
-#define DEBUG_PRINT_ENABLED (debug_enabled)
 #include <util_misc.h>
 
 //
@@ -60,6 +59,9 @@
 
 #define MEMBER_SIZE(type, member) sizeof(((type *)0)->member)
 
+#define BOOK_MOVE_ENABLED  (!opt_book_move_disabled)
+#define BOOK_MOVE_GEN_MODE (opt_book_move_gen_mode)
+
 //
 // typedefs
 //
@@ -81,13 +83,13 @@ typedef struct {
 // variables
 //
 
-bool debug_enabled;
-int human_move_select;
+bool opt_fullscreen;
+bool opt_book_move_disabled;
+bool opt_book_move_gen_mode;
+
+int  human_move_select;
 
 extern char *version;
-
-bool book_move_disabled;
-bool book_move_gen_mode;
 
 //
 // prototypes
@@ -114,48 +116,39 @@ void bm_add_move(board_t *b, int move);
 // inline procedures
 //
 
-static inline int min(int a, int b)
-{
+static inline int min(int a, int b) {
     return a < b ? a : b;
 }
 
-static inline int max(int a, int b)
-{
+static inline int max(int a, int b) {
     return a > b ? a : b;
 }
 
-static inline int32_t min32(int32_t a, int32_t b)
-{
+static inline int32_t min32(int32_t a, int32_t b) {
     return a < b ? a : b;
 }
 
-static inline int32_t max32(int32_t a, int32_t b)
-{
+static inline int32_t max32(int32_t a, int32_t b) {
     return a > b ? a : b;
 }
 
-static inline int64_t min64(int64_t a, int64_t b)
-{
+static inline int64_t min64(int64_t a, int64_t b) {
     return a < b ? a : b;
 }
 
-static inline int64_t max64(int64_t a, int64_t b)
-{
+static inline int64_t max64(int64_t a, int64_t b) {
     return a > b ? a : b;
 }
 
-static inline void setbit(uint8_t *bm, int idx)
-{
+static inline void setbit(uint8_t *bm, int idx) {
     bm[idx/8] |= (1 << (idx&7));
 }
 
-static inline bool getbit(uint8_t *bm, int idx)
-{
+static inline bool getbit(uint8_t *bm, int idx) {
     return bm[idx/8] & (1 << (idx&7));
 }
 
-static inline char *bool2str(bool x)
-{
+static inline char *bool2str(bool x) {
     return x ? "true" : "false";
 }
 

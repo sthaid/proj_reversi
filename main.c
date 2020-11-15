@@ -110,16 +110,16 @@ static int pane_hndlr(pane_cx_t *pane_cx, int request, void * init_params, sdl_e
 
 int main(int argc, char **argv)
 {
+    // xxx don't use ptr here
     #define CPU_PLAYER(lvl) &(player_t){cpu_get_move, lvl, "CPU" #lvl}
     #define OLD_PLAYER(lvl) &(player_t){old_get_move, lvl, "OLD" #lvl}
 
-    bool          fullscreen = false;
     unsigned char opt_char;
     pthread_t     tid;
 
     INFO("STARTING version=%s\n", version);
 
-    // XXX
+    // seed random number generator
     srandom(microsec_timer());
 
     // get options
@@ -133,15 +133,15 @@ int main(int argc, char **argv)
         }
         switch (opt_char) {
         case 'f':
-            fullscreen = true;
+            opt_fullscreen = true;
             break;
         case 'x':
-            book_move_disabled = true;
-            book_move_gen_mode = false;
+            opt_book_move_disabled = true;
+            opt_book_move_gen_mode = false;
             break;
         case 'g':
-            book_move_disabled = false;
-            book_move_gen_mode = true;
+            opt_book_move_disabled = false;
+            opt_book_move_gen_mode = true;
             break;
         default:
             FATAL("invalid opt_char '%c'\n", opt_char);
@@ -149,9 +149,9 @@ int main(int argc, char **argv)
         }
     }
     INFO("OPTIONS:\n");
-    INFO("  fullscreen         = %s\n", bool2str(fullscreen));
-    INFO("  book_move_disabled = %s\n", bool2str(book_move_disabled));
-    INFO("  book_move_gen_mode = %s\n", bool2str(book_move_gen_mode));
+    INFO("  opt_fullscreen         = %s\n", bool2str(opt_fullscreen));
+    INFO("  opt_book_move_disabled = %s\n", bool2str(opt_book_move_disabled));
+    INFO("  opt_book_move_gen_mode = %s\n", bool2str(opt_book_move_gen_mode));
 
     // init array of available players
     avail_players[0] = &(player_t){human_get_move, 0, "HUMAN"};
@@ -185,8 +185,8 @@ int main(int argc, char **argv)
     INFO("  CONFIG_SHOW_EVAL_YN         = %c\n", CONFIG_SHOW_EVAL_YN);
     
     // book move initialization
-    if (book_move_disabled == false) {
-        bm_init(book_move_gen_mode);
+    if (BOOK_MOVE_ENABLED) {
+        bm_init(opt_book_move_gen_mode);
     }
 
     // create game_thread, and
@@ -197,7 +197,7 @@ int main(int argc, char **argv)
     }
 
     // init sdl
-    if (sdl_init(&win_width, &win_height, fullscreen, false, false) < 0) {
+    if (sdl_init(&win_width, &win_height, opt_fullscreen, false, false) < 0) {
         FATAL("sdl_init %dx%d failed\n", win_width, win_height);
     }
 
@@ -209,6 +209,9 @@ int main(int argc, char **argv)
         10000,          // 0=continuous, -1=never, else us
         1,              // number of pane handler varargs that follow
         pane_hndlr, NULL, 0, 0, win_width, win_height, PANE_BORDER_STYLE_NONE);
+
+    // wait for thread to terminate here
+    // xxx
 
     // program terminating
     INFO("TERMINATING\n");

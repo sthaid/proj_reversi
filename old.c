@@ -20,9 +20,6 @@
 #define ONE64             ((int64_t)1)
 #define RANDOMIZE_OPENING 20  // xxx increase a bit because of book move
 
-#define BOOK_MOVE_ENABLED  (!book_move_disabled)
-#define BOOK_MOVE_GEN_MODE (book_move_gen_mode)
-
 //
 // variables
 //
