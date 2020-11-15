@@ -282,7 +282,8 @@ void bm_init(bool bm_gen_mode_arg)
     // set max_bm_file with the number of entries in the file;
     // note - the header is not an entry, thus the '- 1'
     max_bm_file = filesize / sizeof(bm_t) - 1;
-    INFO("max_bm_file = %d\n", max_bm_file);
+    INFO("max_bm_file=%d  MAX_BM_FILE=%d  MAX_BM_HASHTBL=%d\n", 
+         max_bm_file, MAX_BM_FILE, MAX_BM_HASHTBL);
 
     // loop over all entries, starting at 1 to skip the header;
     // and add each entry to the bm_hashtbl

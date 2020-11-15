@@ -1,15 +1,14 @@
 #include <common.h>
 
 // XXX todo
-// - comments
-// - probably will get rid of book move
+// - comments, and review
 // - make b a const  in call to alphabeta  ??
-// - segflt when exitting
+// - should consider defines in here for '20' and others
 
 #define CPU_C
 
 #if !defined(CPU_C) && !defined(OLD_C)
-#  error
+#error "must define CPU_C or OLD_C"
 #endif
 
 //
@@ -18,7 +17,7 @@
 
 #define INFIN             INT64_MAX
 #define ONE64             ((int64_t)1)
-#define RANDOMIZE_OPENING 20  // xxx increase a bit because of book move
+#define RANDOMIZE_OPENING 20
 
 //
 // variables
@@ -35,21 +34,28 @@ static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, pos
 
 // -----------------  CPU PLAYER - GET_MOVE ---------------------------------
 
+static int  MIN_DEPTH[9]              = {0,  1,  2,  3,  4,  5,  6,  7,  8 };
+static int  PIECECNT_FOR_EOG_DEPTH[9] = {0, 56, 55, 54, 53, 52, 51, 50, 49 };
+static bool initialized               = false;
+
+static inline int get_depth(int level, int piececnt)
+{
+    double M, B;
+    int depth;
+
+    M = 1.0;
+    B = (64 - PIECECNT_FOR_EOG_DEPTH[level]) - M * PIECECNT_FOR_EOG_DEPTH[level];
+    depth = rint(M * piececnt + B);
+    if (depth < MIN_DEPTH[level]) depth = MIN_DEPTH[level];
+    return depth;
+}
+
 #ifdef CPU_C
 int cpu_get_move(int level, board_t *b, char *eval_str)
-#endif
-#ifdef OLD_C
-int old_get_move(int level, board_t *b, char *eval_str)
-#endif
 {
     int64_t value;
     int     move, depth, piececnt;
-    double  M, B;
-
-    static int MIN_DEPTH[9] =               {0,  1,  2,  3,  4,  5,  6,  7,  8 };
-    static int PIECECNT_FOR_EOG_DEPTH[9]  = {0, 56, 55, 54, 53, 52, 51, 50, 49 };
-
-    static bool initialized = false;
+    bool    book_move_being_generated = false;
 
     // sanity check level arg
     if (level < 1 || level > 8) {
@@ -66,23 +72,93 @@ int old_get_move(int level, board_t *b, char *eval_str)
     }
     piececnt = b->black_cnt + b->white_cnt;
 
-#ifdef CPU_C
     // book move lookup
     if (BOOK_MOVE_ENABLED) {
         move = bm_get_move(b);
         if (move != MOVE_NONE) {
-            static int count;  // XXX temp
-            if (count++ < 40) INFO("XXX GOT BOOK MOVE %d\n", move);  // XXX temp print
+            static int count; if (count++ < 40) INFO("GOT BOOK MOVE %d\n", move); // XXX temp
             return move;
         }
     }
+
+    // get lookahead depth
+    depth = get_depth(level, piececnt);
+
+    // if BOOK_MOVE_GEN_MODE is enabled and there are < 20 pieces on the board then
+    //   set a high lookahead depth of 10
+    // endif
+    if (BOOK_MOVE_GEN_MODE && piececnt < 20) {
+        book_move_being_generated = true;
+        depth = 10;
+        INFO("bmgen - generating book move using depth %d\n", depth);
+    }
+
+    // call alphabeta to get the best move, and associated heuristic value
+    value = alphabeta(b, depth, -INFIN, +INFIN, true, &move);
+    if (move_cancelled()) {
+        INFO("move_cancelled, returning MOVE_NONE\n");
+        return MOVE_NONE;
+    }
+
+    // if a book move was generated then 
+    // call bm_add_move to add the move to reversi.book file
+    if (book_move_being_generated) {
+        bm_add_move(b, move);
+    }
+
+    // create evaluation string, based on value returned from alphabeta;
+    // this string can optionally be displayed by caller
+    create_eval_str(value, eval_str);
+
+    // return the move, that was obtained by call to alphabeta
+    return move;
+}
 #endif
 
+// -----------------  OLD CPU PLAYER - GET_MOVE -----------------------------
+
+// This is used:
+// - in tournament mode to compare the ability of the new cpu code against the old.
+// - in tournament/book_move_gen_mode: to introduce occasional random moves;
+//   this increases the number of book moves that get saved in reversi.book
+//
+// Note:
+// - book move lookup is not currently performed by this routine; this allows tournament
+//   mode to quantify the benefit of the book move lookup that is performed in cpu_get_move
+
 #ifdef OLD_C
-    // xxx comment
+int old_get_move(int level, board_t *b, char *eval_str)
+{
+    int64_t value;
+    int     move, depth, piececnt;
+
+    // sanity check level arg
+    if (level < 1 || level > 8) {
+        FATAL("invlaid level %d\n", level);
+    }
+
+    // initialization
+    if (initialized == false) {
+        init_edge_gateway_to_corner();
+        initialized = true;
+    }
+    if (eval_str) {
+        eval_str[0] = '\0';
+    }
+    piececnt = b->black_cnt + b->white_cnt;
+
+    // book move lookup  (not currently used in old.c)
+    if (false && BOOK_MOVE_ENABLED) {
+        move = bm_get_move(b);
+        if (move != MOVE_NONE) {
+            return move;
+        }
+    }
+
+    // XXX comment
     if (BOOK_MOVE_GEN_MODE &&
         get_max_bm_file() > 600 && 
-        piececnt < 20 &&   // xxx need defines in here for '20' and others
+        piececnt < 20 &&
         (random() % 10) == 0) 
     {
         possible_moves_t pm;
@@ -94,44 +170,25 @@ int old_get_move(int level, board_t *b, char *eval_str)
         INFO("bmgen - random move %d color=%d***\n", move, b->whose_turn);
         return move;
     }
-#endif
 
-    // xxx comment
-    M = 1.0;
-    B = (64 - PIECECNT_FOR_EOG_DEPTH[level]) - M * PIECECNT_FOR_EOG_DEPTH[level];
-    depth = rint(M * piececnt + B);
-    if (depth < MIN_DEPTH[level]) depth = MIN_DEPTH[level];
+    // get lookahead depth
+    depth = get_depth(level, piececnt);
 
-#ifdef CPU_C
-    // xxx comment
-    bool book_move_being_generated = false;
-    if (BOOK_MOVE_GEN_MODE) {
-        if (b->black_cnt + b->white_cnt < 20) {
-            book_move_being_generated = true;
-            depth = 10;
-            INFO("bmgen - generating book move using depth %d\n", depth);
-        }
-    }
-#endif
-
-    // xxx comment
+    // call alphabeta to get the best move, and associated heuristic value
     value = alphabeta(b, depth, -INFIN, +INFIN, true, &move);
     if (move_cancelled()) {
         INFO("move_cancelled, returning MOVE_NONE\n");
         return MOVE_NONE;
     }
 
-#ifdef CPU_C
-    // xxx comment
-    if (book_move_being_generated) {
-        bm_add_move(b, move);
-    }
-#endif
-
-    // xxx comment
+    // create evaluation string, based on value returned from alphabeta;
+    // this string can optionally be displayed by caller
     create_eval_str(value, eval_str);
+
+    // return the move, that was obtained by call to alphabeta
     return move;
 }
+#endif
 
 // -----------------  CREATE GAME FORECAST EVALUATION STRING  ----------------
 
@@ -413,7 +470,7 @@ static void init_edge_gateway_to_corner(void)
             }
         }
         edge_reversed = REVERSE(edge);
-        //INFO("BLACK PATTERN  %04x  %04x\n", edge, edge_reversed);  //xxx del
+        //INFO("BLACK PATTERN  %04x  %04x\n", edge, edge_reversed);
         setbit(black_gateway_to_corner_bitmap, edge);
         setbit(black_gateway_to_corner_bitmap, edge_reversed);
     }
@@ -429,7 +486,7 @@ static void init_edge_gateway_to_corner(void)
             }
         }
         edge_reversed = REVERSE(edge);
-        //INFO("WHITE PATTERN  %04x  %04x\n", edge, edge_reversed);  //xxx del
+        //INFO("WHITE PATTERN  %04x  %04x\n", edge, edge_reversed);
         setbit(white_gateway_to_corner_bitmap, edge);
         setbit(white_gateway_to_corner_bitmap, edge_reversed);
     }
@@ -481,7 +538,7 @@ static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, pos
 
     // game is not over ...
 
-    // XXX comments
+    // XXX comments needed here
     // - corner count
     // - corner moves
     // - diagnol gateways to corner
