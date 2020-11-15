@@ -103,6 +103,7 @@ static void *game_thread(void *cx);
 static void game_mode_get_players(player_t **pb, player_t **pw);
 static void tournament_get_players(player_t **pb, player_t **pw);
 static void tournament_tally_game_result(void);
+static void debug_print_game_duration(uint64_t game_start_us);
 
 static int pane_hndlr(pane_cx_t *pane_cx, int request, void * init_params, sdl_event_t * event);
 
@@ -224,6 +225,7 @@ static void *game_thread(void *cx)
     int  move;
     bool tournament_game;
     player_t *player;
+    uint64_t game_start_us;
 
 restart:
     // init the first game_move, including the starting board 
@@ -268,7 +270,7 @@ restart:
     __sync_synchronize();
 
     // loop until game is finished
-    uint64_t start_us = microsec_timer(); //xxx
+    game_start_us = microsec_timer();
     while (true) {
 again:
         // determine whose turn it is
@@ -287,11 +289,9 @@ again:
         // this may also set game_moves[].eval_str field, which is set by
         //  code in cpu.c when cpu is playing human, the eval_str is 
         //  displayed when displaying it is enabled
-        //uint64_t move_start_us = microsec_timer(); //xxx
         move = player->get_move(player->level,
                                 &game_moves[max_game_moves-1].board, 
                                 game_moves[max_game_moves-1].eval_str);
-        //INFO("MOVE DURATION = %0.1f secs\n", (microsec_timer() - move_start_us) / 1000000.);
 
         // if move returned is MOVE_GAME_OVER then break out of the game play loop
         if (move == MOVE_GAME_OVER) {
@@ -339,18 +339,9 @@ again:
                    (CONFIG_SHOW_MOVE_YN == 'Y' && !tournament_game 
                     ? game_moves[max_game_moves-1].highlight : NULL));
     }
-    { // XXX  make this a routine
-    uint64_t duration_us;
-    static uint64_t sum_duration_us;
-    static int game_count;
 
-    duration_us = microsec_timer() - start_us;
-    sum_duration_us += duration_us;
-    game_count++;
-    INFO("GAME DURATION = %0.3f secs  AVERAGE = %0.3f secs\n", 
-         duration_us/1000000.,
-         sum_duration_us/1000000./game_count);
-    }
+    // debug print game durations stats
+    debug_print_game_duration(game_start_us);
 
     // game is over
     game_state = GAME_STATE_COMPLETE;
@@ -420,6 +411,26 @@ static void tournament_tally_game_result(void)
     } else {
         tournament.games_won[tournament.pw_idx] += 1;
     }
+}
+
+static void debug_print_game_duration(uint64_t game_start_us)
+{
+    uint64_t duration_us;
+    static uint64_t sum_duration_us;
+    static int game_count;
+
+    duration_us = microsec_timer() - game_start_us;
+    sum_duration_us += duration_us;
+    game_count++;
+
+    if ((game_count % 100) != 0) {
+        return;
+    }
+
+    INFO("GAME count=%d  duration=%0.3f secs  avg_dur=%0.3f secs\n",
+         game_count,
+         duration_us/1000000.,
+         sum_duration_us/1000000./game_count);
 }
 
 bool move_cancelled(void)
@@ -535,7 +546,7 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
         double sq_wh = (win_height - 2) / 8. - 2;
 #endif
 
-        INFO("PANE x,y,w,h  %d %d %d %d\n", pane->x, pane->y, pane->w, pane->h);
+        //INFO("PANE x,y,w,h  %d %d %d %d\n", pane->x, pane->y, pane->w, pane->h);
 
         piece_circle_radius  = rint(.4*sq_wh);
         piece_black_circle   = sdl_create_filled_circle_texture(piece_circle_radius, SDL_BLACK);
