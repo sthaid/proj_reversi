@@ -148,28 +148,44 @@ int old_get_move(int level, const board_t *b, char *eval_str)
     }
     piececnt = b->black_cnt + b->white_cnt;
 
-    // book move lookup  (not currently used in old.c)
-    if (false && BOOK_MOVE_ENABLED) {
+#if 0
+    // book move lookup
+    if (BOOK_MOVE_ENABLED && !BOOK_MOVE_GEN_MODE) {
         move = bm_get_move(b);
         if (move != MOVE_NONE) {
             return move;
         }
     }
+#endif
 
-    // XXX comment
-    if (BOOK_MOVE_GEN_MODE &&
-        get_max_bm_file() > 600 && 
-        piececnt < 20 &&
-        (random() % 10) == 0) 
-    {
-        possible_moves_t pm;
-        get_possible_moves(b, &pm);
-        if (pm.max == 0) {
-            return MOVE_PASS;
-        } 
-        move = pm.move[ random()%pm.max ];
-        INFO("bmgen - random move %d color=%d***\n", move, b->whose_turn);
-        return move;
+    // When generating book moves, cpu.c is generating the book moves, 
+    //  in response to the moves which are determined by old.c.
+    // If old.c were to always to pick what it considers the best move then
+    //  there is little game variety and not many book moves are generated.
+    // The following code causes old.c to choose random moves in every other
+    //  game, and with a probabilty of 0.10. 
+    // Random number generator is reseeded every 100 games, this also
+    //  adds to game variety.
+    if (BOOK_MOVE_GEN_MODE) {
+        static unsigned int game_count;
+        if (piececnt <= 5) {
+            INFO("game_count=%d\n", game_count);
+            game_count++;
+            if ((game_count % 100) == 0) {
+                INFO("reseeding random number generator, game_count=%d\n", game_count);
+                srandom(microsec_timer());
+            }
+        }
+        if (game_count & 1) {
+            if (piececnt < 20 && (random() % 10) == 0) {
+                possible_moves_t pm;
+                get_possible_moves(b, &pm);
+                if (pm.max == 0) return MOVE_PASS;
+                move = pm.move[ random()%pm.max ];
+                INFO("bmgen - random move %d color=%d\n", move, b->whose_turn);
+                return move;
+            }
+        }
     }
 
     // get lookahead depth
