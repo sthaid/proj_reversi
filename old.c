@@ -28,9 +28,9 @@
 //
 
 static void create_eval_str(int64_t value, char *eval_str);
-static int64_t alphabeta(board_t *b, int depth, int64_t alpha, int64_t beta, bool maximizing_player, int *move);
+static int64_t alphabeta(const board_t *b, int depth, int64_t alpha, int64_t beta, bool maximizing_player, int *move);
 static void init_edge_gateway_to_corner(void);
-static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm);
+static int64_t heuristic(const board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm);
 
 // -----------------  CPU PLAYER - GET_MOVE ---------------------------------
 
@@ -51,7 +51,7 @@ static inline int get_depth(int level, int piececnt)
 }
 
 #ifdef CPU_C
-int cpu_get_move(int level, board_t *b, char *eval_str)
+int cpu_get_move(int level, const board_t *b, char *eval_str)
 {
     int64_t value;
     int     move, depth, piececnt;
@@ -76,6 +76,7 @@ int cpu_get_move(int level, board_t *b, char *eval_str)
     if (BOOK_MOVE_ENABLED) {
         move = bm_get_move(b);
         if (move != MOVE_NONE) {
+            // XXX print stat for avg number of book moves per game
             static int count; if (count++ < 40) INFO("GOT BOOK MOVE %d\n", move); // XXX temp
             return move;
         }
@@ -127,7 +128,7 @@ int cpu_get_move(int level, board_t *b, char *eval_str)
 //   mode to quantify the benefit of the book move lookup that is performed in cpu_get_move
 
 #ifdef OLD_C
-int old_get_move(int level, board_t *b, char *eval_str)
+int old_get_move(int level, const board_t *b, char *eval_str)
 {
     int64_t value;
     int     move, depth, piececnt;
@@ -214,7 +215,7 @@ static void create_eval_str(int64_t value, char *eval_str)
 
 // -----------------  CHOOSE BEST MOVE (RECURSIVE ROUTINE)  -----------------
 
-static int64_t alphabeta(board_t *b, int depth, int64_t alpha, int64_t beta, bool maximizing_player, int *move)
+static int64_t alphabeta(const board_t *b, int depth, int64_t alpha, int64_t beta, bool maximizing_player, int *move)
 {
     #define CHILD(mv) \
         ({ b_child = *b; \
@@ -306,7 +307,7 @@ static int64_t alphabeta(board_t *b, int depth, int64_t alpha, int64_t beta, boo
 
 // -----------------  HEURISTIC  ---------------------------------------------------
 
-static inline int64_t corner_count(board_t *b)
+static inline int64_t corner_count(const board_t *b)
 {
     int cnt = 0;
     int my_color = b->whose_turn;
@@ -323,7 +324,7 @@ static inline int64_t corner_count(board_t *b)
     return cnt;
 }
 
-static inline int64_t corner_moves(board_t *b)
+static inline int64_t corner_moves(const board_t *b)
 {
     int cnt = 0;
     int my_color = b->whose_turn;
@@ -334,16 +335,16 @@ static inline int64_t corner_moves(board_t *b)
         if (is_corner_move_possible(b, which_corner)) cnt++;
     }
 
-    b->whose_turn = other_color;
+    ((board_t*)b)->whose_turn = other_color;
     for (which_corner = 0; which_corner < 4; which_corner++) {
         if (is_corner_move_possible(b, which_corner)) cnt--;
     }
-    b->whose_turn = my_color;
+    ((board_t*)b)->whose_turn = my_color;
 
     return cnt;
 }
 
-static inline int64_t diagnol_gateways_to_corner(board_t *b)
+static inline int64_t diagnol_gateways_to_corner(const board_t *b)
 {
     int cnt = 0;
     int my_color = b->whose_turn;
@@ -372,7 +373,7 @@ static inline int64_t diagnol_gateways_to_corner(board_t *b)
 static uint8_t black_gateway_to_corner_bitmap[8192];
 static uint8_t white_gateway_to_corner_bitmap[8192];
 
-static inline int64_t edge_gateway_to_corner(board_t *b)
+static inline int64_t edge_gateway_to_corner(const board_t *b)
 {
     #define HORIZONTAL_EDGE(b, r) \
         ((b->pos[r][1] << 14) | \
@@ -492,7 +493,7 @@ static void init_edge_gateway_to_corner(void)
     }
 }
 
-static inline int64_t reasonable_moves(board_t *b, possible_moves_t *pm)
+static inline int64_t reasonable_moves(const board_t *b, possible_moves_t *pm)
 {
     int i, cnt = pm->max;
 
@@ -513,7 +514,7 @@ static inline int64_t reasonable_moves(board_t *b, possible_moves_t *pm)
 
 // - - - - - - - - - - - - - - - - - - 
 
-static int64_t heuristic(board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm)
+static int64_t heuristic(const board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm)
 {
     int64_t value;
 

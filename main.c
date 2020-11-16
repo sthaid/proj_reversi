@@ -61,7 +61,7 @@ typedef struct {
 } game_moves_t;
 
 typedef struct {
-    int (*get_move)(int level, board_t *b, char *eval_str);
+    int (*get_move)(int level, const board_t *b, char *eval_str);
     int   level;
     char  name[100];
 } player_t;
@@ -533,8 +533,6 @@ static rect_t *rc_to_loc(int r_arg, int c_arg);
 
 static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
-    rect_t * pane = &pane_cx->pane;
-
     // ----------------------------
     // -------- INITIALIZE --------
     // ----------------------------
@@ -546,6 +544,7 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
         double sq_wh = (win_height - 2) / 8. - 2;
 #endif
 
+        //rect_t * pane = &pane_cx->pane;
         //INFO("PANE x,y,w,h  %d %d %d %d\n", pane->x, pane->y, pane->w, pane->h);
 
         piece_circle_radius  = rint(.4*sq_wh);

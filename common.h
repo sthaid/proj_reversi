@@ -95,22 +95,22 @@ extern char *version;
 // prototypes
 //
 
-int human_get_move(int level, board_t *b, char *eval_str);
-int cpu_get_move(int level, board_t *b, char *eval_str);
-int old_get_move(int level, board_t *b, char *eval_str);
+int human_get_move(int level, const board_t *b, char *eval_str);
+int cpu_get_move(int level, const board_t *b, char *eval_str);
+int old_get_move(int level, const board_t *b, char *eval_str);
 
 bool move_cancelled(void);
 
 void apply_move(board_t *b, int move, unsigned char highlight[][10]);
-void get_possible_moves(board_t *b, possible_moves_t *pm);
-bool is_corner_move_possible(board_t *b, int which_corner);
+void get_possible_moves(const board_t *b, possible_moves_t *pm);
+bool is_corner_move_possible(const board_t *b, int which_corner);
 
 void bm_init(bool bm_gen_mode);
-int bm_get_move(board_t *b);
+int bm_get_move(const board_t *b);
 int get_max_bm_file(void);
 
 // only for use by book_move_generator ...
-void bm_add_move(board_t *b, int move);
+void bm_add_move(const board_t *b, int move);
 
 //
 // inline procedures

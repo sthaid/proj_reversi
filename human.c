@@ -2,7 +2,7 @@
 
 // -----------------  HUMAN PLAYER - GET_MOVE -------------------------------
 
-int human_get_move(int level, board_t *b, char *eval_str)
+int human_get_move(int level, const board_t *b, char *eval_str)
 {
     #define CHILD(mv) \
         ({ b_child = *b; \

@@ -98,7 +98,7 @@ void  apply_move(board_t *b, int move, unsigned char highlight[][10])
     b->whose_turn = OTHER_COLOR(b->whose_turn);
 }
 
-void get_possible_moves(board_t *b, possible_moves_t *pm)
+void get_possible_moves(const board_t *b, possible_moves_t *pm)
 {
     int r, c, i, my_color, other_color, move;
 
@@ -137,7 +137,7 @@ void get_possible_moves(board_t *b, possible_moves_t *pm)
     }
 }
 
-bool is_corner_move_possible(board_t *b, int which_corner)
+bool is_corner_move_possible(const board_t *b, int which_corner)
 {
     static struct {
         int r;
@@ -215,11 +215,11 @@ static int   max_bm_file; // XXX fix the hdr problem
 static int   bm_hashtbl[MAX_BM_HASHTBL];
 static bool  bm_gen_mode;
 
-static void create_sig(unsigned char pos[][10], int whose_turn, bm_sig_t *sig);
+static void create_sig(const unsigned char pos[][10], int whose_turn, bm_sig_t *sig);
 static void rotate(unsigned char pos[][10]);
 static void flip(unsigned char pos[][10]);
 static unsigned int crc32(const void *buf, size_t size);
-static void bm_add_move_debug(board_t *b, int move);
+static void bm_add_move_debug(const board_t *b, int move);
 
 // --------- public  -----------------
 
@@ -292,7 +292,7 @@ void bm_init(bool bm_gen_mode_arg)
     }
 }
 
-int bm_get_move(board_t *b)
+int bm_get_move(const board_t *b)
 {
     unsigned char pos[10][10];
     unsigned char move[10][10];
@@ -351,7 +351,7 @@ int bm_get_move(board_t *b)
     return MOVE_NONE;
 }
 
-void bm_add_move(board_t *b, int move)
+void bm_add_move(const board_t *b, int move)
 {
     bm_t new_bm_ent;
 
@@ -402,7 +402,7 @@ int get_max_bm_file(void)
 
 // --------- private  -----------------
 
-static void create_sig(unsigned char pos[][10], int whose_turn, bm_sig_t *sig)
+static void create_sig(const unsigned char pos[][10], int whose_turn, bm_sig_t *sig)
 {
     int r;
 
@@ -513,7 +513,7 @@ static uint32_t crc32(const void *buf, size_t size)
     return crc ^ ~0U;
 }
 
-static void bm_add_move_debug(board_t *b, int move)
+static void bm_add_move_debug(const board_t *b, int move)
 {
     char line[8][50];
     int i, r, c;
