@@ -1,8 +1,5 @@
 #include <common.h>
 
-// XXX todo
-// - comments, and review
-
 #define CPU_C
 
 #if !defined(CPU_C) && !defined(OLD_C)
@@ -358,7 +355,7 @@ static inline int64_t corner_moves(const board_t *b)
     return cnt;
 }
 
-static inline int64_t diagnol_gateways_to_corner(const board_t *b)
+static inline int64_t diagonal_gateways_to_corner(const board_t *b)
 {
     int cnt = 0;
     int my_color = b->whose_turn;
@@ -553,18 +550,39 @@ static int64_t heuristic(const board_t *b, bool maximizing_player, bool game_ove
 
     // game is not over ...
 
-    // XXX comments needed here
-    // - corner count
-    // - corner moves
-    // - diagnol gateways to corner
-    // - edge gateways to corner
-    // - reasonable moves
-    // - random value so that the same move is not always chosen
+    // The following board characteristics are utilized to generate the heuristic value.
+    //
+    // These are listed in order of importance / numeric weight.
+    //
+    // Except as noted, each characteristic is evaluated as a poistive for the color 
+    // whose turn it is, and a negative for the other color. For example, if it is
+    // black's turn and black has pieces in 2 corners and white has pieces in 1 corner
+    // then the corner_count would be 1.
+    //
+    // - corner_count: count of occupied corners
+    //
+    // - corner_moves: number of corners that can be captured
+    //
+    // - diagonal_gateways_to_corner: number of pieces that are diagonally inside
+    //   an unoccupied corner; this count is negative for my_color and positive for other_color
+    //
+    // - edge_gateways_to_corner: certain edge patterns can lead to future corner 
+    //   capture; this counts the number of occurances of an edge pattern that can
+    //   lead to future corner capture
+    //
+    // - reasonable_moves: this characteristic is evaluated only for the color whose turn it
+    //   is; this is the count of possible moves minus possible moves that are not
+    //   reasonable; the moves that are not considered reasonable are moves that provide
+    //   a diagonal gateway to a corner
+    //
+    // - random value so that the same move is not always chosen; this covers the
+    //   case where heuristic value calculated from the above characteristics are the
+    //   same for differnent board inputs
 
     value = 0;
     value += (corner_count(b) << 48);
     value += (corner_moves(b) << 40);
-    value += (diagnol_gateways_to_corner(b) << 32);
+    value += (diagonal_gateways_to_corner(b) << 32);
     value += (edge_gateway_to_corner(b) << 24);
     value += (reasonable_moves(b, pm) << 16);
     if (b->black_cnt + b->white_cnt < RANDOMIZE_OPENING) {

@@ -92,7 +92,7 @@ void  apply_move(board_t *b, int move, unsigned char highlight[][10])
 
     if (highlight) {
         sleep(1);
-        memset(highlight, 0, 100);  // xxx sizeof
+        memset(highlight, 0, 100);
     }
 
     b->whose_turn = OTHER_COLOR(b->whose_turn);
@@ -184,6 +184,18 @@ bool is_corner_move_possible(const board_t *b, int which_corner)
 
 // -----------------  BOOK MOVE SUPPORT  ------------------------------------------
 
+// Notes:
+//
+// The reversi.book file is an array of bm_t;
+// except the first entry, bm_file[0], is the file hdr which contains 
+// a magic number.
+//
+// MAX_BM_HASHTBL should be > 2*max_bm_file. This is a recommendation,
+// and not an absolute requirement.
+//
+// MAX_BM_FILE is used only in bm gen mode, to provide a large array
+// of bm_file entries that are added to by calls to bm_add_move().
+
 #define BM_ASSETNAME       "reversi.book"
 #define MAX_BM_HASHTBL     (1 << 16)   // must be pwr of 2
 #define CRC_TO_HTIDX(crc)  ((crc) & (MAX_BM_HASHTBL-1))
@@ -211,7 +223,7 @@ typedef struct {
 } bm_t;
 
 static bm_t *bm_file;
-static int   max_bm_file; // XXX fix the hdr problem
+static int   max_bm_file;
 static int   bm_hashtbl[MAX_BM_HASHTBL];
 static bool  bm_gen_mode;
 
