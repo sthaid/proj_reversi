@@ -1893,7 +1893,9 @@ texture_t sdl_create_text_texture(int32_t fg_color, int32_t bg_color, int32_t fo
     // if the font has not been initialized then do so
     font_init(font_ptsize);
 
-    // xxx comments
+    // render the text to a surface,
+    // create a texture from the surface
+    // free the surface
     surface = TTF_RenderText_Shaded(sdl_font[font_ptsize].font, str, fg_sdl_color, bg_sdl_color);
     if (surface == NULL) {
         ERROR("failed to allocate surface\n");
@@ -1907,6 +1909,7 @@ texture_t sdl_create_text_texture(int32_t fg_color, int32_t bg_color, int32_t fo
     }
     SDL_FreeSurface(surface);
 
+    // return the texture which contains the text
     return (texture_t)texture;
 }
 

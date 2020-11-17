@@ -107,8 +107,6 @@ void logmsg(char *lvl, const char *func, char *fmt, ...)
 
 // -----------------  ASSET FILE SUPPORT  --------------------------------
 
-//XXX update these for android
-
 #ifndef ANDROID
 static char *assetname_to_pathname(char *assetname, char *pathname);
 
@@ -260,7 +258,7 @@ void write_asset_file(char *assetname, void *data, size_t datalen)
 
 // -----------------  TIME UTILS  -----------------------------------------
 
-#if 0
+#if 0  // not supported on Android
 uint64_t tsc_timer(void)
 {
     unsigned long  tsc;

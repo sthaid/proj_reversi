@@ -6,6 +6,13 @@
 #include <help.h>
 
 //
+// notes
+//
+// - Moto G Power: screen size XXX check this
+//   win_width=2184 win_height=954
+//
+
+//
 // defines
 //
 

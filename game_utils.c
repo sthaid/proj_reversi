@@ -12,7 +12,6 @@
 // prototypes
 //
 
-
 // -----------------  GAME BOARD SUPPORT  -----------------------------------------
 
 //                          0   1   2   3   4   5  6  7
@@ -233,7 +232,7 @@ static void flip(unsigned char pos[][10]);
 static unsigned int crc32(const void *buf, size_t size);
 static void bm_add_move_debug(const board_t *b, int move);
 
-// --------- public  -----------------
+// --------- bm: public  -----------------
 
 void bm_init(bool bm_gen_mode_arg)
 {
@@ -412,7 +411,7 @@ int get_max_bm_file(void)
     return max_bm_file;
 }
 
-// --------- private  -----------------
+// --------- bm: private  -----------------
 
 static void create_sig(const unsigned char pos[][10], int whose_turn, bm_sig_t *sig)
 {
