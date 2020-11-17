@@ -2,8 +2,6 @@
 
 // XXX todo
 // - comments, and review
-// - make b a const  in call to alphabeta  ??
-// - should consider defines in here for '20' and others
 
 #define CPU_C
 

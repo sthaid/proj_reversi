@@ -172,6 +172,8 @@ int main(int argc, char **argv)
     tournament_players[3] = OLD_PLAYER(4);
     tournament_players[4] = CPU_PLAYER(5);
     tournament_players[5] = OLD_PLAYER(5);
+    tournament_players[6] = CPU_PLAYER(6);
+    tournament_players[7] = OLD_PLAYER(6);
     max_tournament_players = 6;
 
     // read configuration file, and print values
@@ -209,9 +211,6 @@ int main(int argc, char **argv)
         10000,          // 0=continuous, -1=never, else us
         1,              // number of pane handler varargs that follow
         pane_hndlr, NULL, 0, 0, win_width, win_height, PANE_BORDER_STYLE_NONE);
-
-    // wait for thread to terminate here
-    // XXX maybe not needed
 
     // program terminating
     INFO("TERMINATING\n");
@@ -277,6 +276,8 @@ again:
         game_moves[max_game_moves-1].board.whose_turn = (max_game_moves & 1) ? BLACK : WHITE;
         player = (game_moves[max_game_moves-1].board.whose_turn == BLACK ? player_black : player_white);
 
+        //XXX if (game_moves[max_game_moves-1].board.whose_turn == BLACK) sleep(3);
+
         // set game_moves fields:
         // - player_is_human, and
         // - possible_moves 
@@ -305,7 +306,15 @@ again:
         // - GAME_REQUEST_RESTART: game is reset and starts
         if (game_request != GAME_REQUEST_NONE) {
             if (game_request == GAME_REQUEST_UNDO) {
-                if (max_game_moves > 2) {
+                if (max_game_moves > 1 &&
+                    game_moves[max_game_moves-1].player_is_human &&
+                    game_moves[max_game_moves-2].player_is_human)
+                {
+                    max_game_moves -= 1;
+                } else if (max_game_moves > 2 &&
+                           game_moves[max_game_moves-1].player_is_human &&
+                           !game_moves[max_game_moves-2].player_is_human)
+                {
                     max_game_moves -= 2;
                 }
                 game_request = GAME_REQUEST_NONE;
@@ -668,7 +677,9 @@ static void render_game_mode(pane_cx_t *pane_cx)
         }
 
         // register for the HUMAN_UNDO event
-        if (max_game_moves > 2) {
+        if ((max_game_moves > 2) ||
+            (max_game_moves > 1 && game_moves[max_game_moves-2].player_is_human))
+        {
             register_event(pane_cx, 9, 0, SDL_EVENT_HUMAN_UNDO, "UNDO");
         }
     }
@@ -843,6 +854,14 @@ static void render_tournament_mode(pane_cx_t *pane_cx)
     // register for the HELP, and SET_GAME_MODE events
     register_event(pane_cx, 0, -4, SDL_EVENT_HELP, "HELP");
     register_event(pane_cx, 0, 0, SDL_EVENT_SET_GAME_MODE, "TOURNAMENT");
+
+    // print whose turn it is
+    board_t *b = &game_moves[max_game_moves-1].board;
+    if (b->whose_turn == BLACK) {
+        print(pane_cx, 0.9, 3, "*");
+    } else {
+        print(pane_cx, 0.9, 10, "*");
+    }
 
     // print tournament mode status
     print(pane_cx, 1.5, 0, "%5s vs %s", player_black->name, player_white->name);
