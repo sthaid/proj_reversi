@@ -48,16 +48,6 @@ the board is performed. The move\n\
 is chosen which leads to the\n\
 highest heuristic value.\n\
 \n\
-The heuristic evaluator takes the\n\
-following into account, these\n\
-criteria are listed in order of\n\
-importance:\n\
-- winning\n\
-- number of corner squares\n\
-- number of squares diagonally\n\
-  inside an unoccupied corner\n\
-- number of possible moves\n\
-\n\
 ============\n\
 TOURNAMENT\n\
 ============\n\
@@ -69,14 +59,7 @@ are pitted against each other.\n\
 The percentage of games won is\n\
 displayed for each.\n\
 \n\
-The results are as expected, the\n\
-CPU<N> players with the higher\n\
-'N' win a higher percentage of\n\
-their games.\n\
-\n\
 A primary purpose of tournament\n\
 mode is to test new heuristic\n\
-evaluators. Additional\n\
-heuristic evaluators can be added\n\
-to cpu.c.\n\
+evaluators.\n\
 ";

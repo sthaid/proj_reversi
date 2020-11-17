@@ -8,9 +8,6 @@
 //
 // notes
 //
-// - Moto G Power: screen size XXX check this
-//   win_width=2184 win_height=954
-//
 
 //
 // defines
@@ -724,11 +721,11 @@ static void render_game_mode(pane_cx_t *pane_cx)
     } else {
         board_t *b = &game_moves[max_game_moves-1].board;
         print(pane_cx, 4, 2, "%c%-5s %2d", 
-              b->whose_turn == BLACK ? '*' : ' ',
+              game_state == GAME_STATE_ACTIVE && b->whose_turn == BLACK ? '*' : ' ',
               player_black->name,
               b->black_cnt);
         print(pane_cx, 5.5, 2, "%c%-5s %2d", 
-              b->whose_turn == WHITE ? '*' : ' ',
+              game_state == GAME_STATE_ACTIVE && b->whose_turn == WHITE ? '*' : ' ',
               player_white->name,
               b->white_cnt);
     }
