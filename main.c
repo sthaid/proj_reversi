@@ -276,8 +276,6 @@ again:
         game_moves[max_game_moves-1].board.whose_turn = (max_game_moves & 1) ? BLACK : WHITE;
         player = (game_moves[max_game_moves-1].board.whose_turn == BLACK ? player_black : player_white);
 
-        //XXX if (game_moves[max_game_moves-1].board.whose_turn == BLACK) sleep(3);
-
         // set game_moves fields:
         // - player_is_human, and
         // - possible_moves 
