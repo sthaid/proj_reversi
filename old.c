@@ -10,9 +10,8 @@
 // defines
 //
 
-#define INFIN             INT64_MAX
-#define ONE64             ((int64_t)1)
-#define RANDOMIZE_OPENING 20
+#define INFIN INT64_MAX
+#define ONE64 ((int64_t)1)
 
 //
 // variables
@@ -22,7 +21,6 @@
 // prototypes
 //
 
-static void create_eval_str(int64_t value, char *eval_str);
 static int64_t alphabeta(const board_t *b, int depth, int64_t alpha, int64_t beta, bool maximizing_player, int *move);
 static void init_edge_gateway_to_corner(void);
 static int64_t heuristic(const board_t *b, bool maximizing_player, bool game_over, possible_moves_t *pm);
@@ -46,6 +44,8 @@ static inline int get_depth(int level, int piececnt)
 }
 
 #ifdef CPU_C
+static void create_eval_str(int64_t value, char *eval_str);
+
 int cpu_get_move(int level, const board_t *b, char *eval_str)
 {
     int64_t value;
@@ -62,17 +62,13 @@ int cpu_get_move(int level, const board_t *b, char *eval_str)
         init_edge_gateway_to_corner();
         initialized = true;
     }
-    if (eval_str) {
-        eval_str[0] = '\0';
-    }
     piececnt = b->black_cnt + b->white_cnt;
 
     // book move lookup
     if (BOOK_MOVE_ENABLED) {
         move = bm_get_move(b);
         if (move != MOVE_NONE) {
-            // XXX print stat for avg number of book moves per game
-            static int count; if (count++ < 40) INFO("GOT BOOK MOVE %d\n", move); // XXX temp
+            if (eval_str) eval_str[0] = '\0';
             return move;
         }
     }
@@ -93,6 +89,7 @@ int cpu_get_move(int level, const board_t *b, char *eval_str)
     value = alphabeta(b, depth, -INFIN, +INFIN, true, &move);
     if (move_cancelled()) {
         INFO("move_cancelled, returning MOVE_NONE\n");
+        if (eval_str) eval_str[0] = '\0';
         return MOVE_NONE;
     }
 
@@ -109,6 +106,26 @@ int cpu_get_move(int level, const board_t *b, char *eval_str)
     // return the move, that was obtained by call to alphabeta
     return move;
 }
+
+static void create_eval_str(int64_t value, char *eval_str)
+{
+    // eval_str should not exceed 16 char length, 
+    // to avoid characters being off the window
+
+    if (eval_str == NULL) {
+        return;
+    }
+
+    if (value == (ONE64 << 56)) {
+        sprintf(eval_str, "TIE");
+    } else if (value > (ONE64 << 56)) {
+        sprintf(eval_str, "CPU TO WIN BY %d", (int)((value >> 56) - 1));
+    } else if (value < -(ONE64 << 56)) {
+        sprintf(eval_str, "HUMAN CAN WIN BY %d", (int)(-(value >> 56) - 1));
+    } else {
+        eval_str[0] = '\0';
+    }
+}
 #endif
 
 // -----------------  OLD CPU PLAYER - GET_MOVE -----------------------------
@@ -121,12 +138,12 @@ int cpu_get_move(int level, const board_t *b, char *eval_str)
 // Note:
 // - book move lookup is not currently performed by this routine; this allows tournament
 //   mode to quantify the benefit of the book move lookup that is performed in cpu_get_move
+// - old_get_move does not updae eval_str
 
 #ifdef OLD_C
 int old_get_move(int level, const board_t *b, char *eval_str)
 {
-    int64_t value;
-    int     move, depth, piececnt;
+    int move, depth, piececnt;
 
     // sanity check level arg
     if (level < 1 || level > 8) {
@@ -137,9 +154,6 @@ int old_get_move(int level, const board_t *b, char *eval_str)
     if (initialized == false) {
         init_edge_gateway_to_corner();
         initialized = true;
-    }
-    if (eval_str) {
-        eval_str[0] = '\0';
     }
     piececnt = b->black_cnt + b->white_cnt;
 
@@ -186,43 +200,17 @@ int old_get_move(int level, const board_t *b, char *eval_str)
     // get lookahead depth
     depth = get_depth(level, piececnt);
 
-    // call alphabeta to get the best move, and associated heuristic value
-    value = alphabeta(b, depth, -INFIN, +INFIN, true, &move);
+    // call alphabeta to get the best move
+    alphabeta(b, depth, -INFIN, +INFIN, true, &move);
     if (move_cancelled()) {
         INFO("move_cancelled, returning MOVE_NONE\n");
         return MOVE_NONE;
     }
 
-    // create evaluation string, based on value returned from alphabeta;
-    // this string can optionally be displayed by caller
-    create_eval_str(value, eval_str);
-
     // return the move, that was obtained by call to alphabeta
     return move;
 }
 #endif
-
-// -----------------  CREATE GAME FORECAST EVALUATION STRING  ----------------
-
-static void create_eval_str(int64_t value, char *eval_str)
-{
-    // eval_str should not exceed 16 char length, 
-    // to avoid characters being off the window
-
-    if (eval_str == NULL) {
-        return;
-    }
-
-    if (value == (ONE64 << 56)) {
-        sprintf(eval_str, "TIE");
-    } else if (value > (ONE64 << 56)) {
-        sprintf(eval_str, "CPU TO WIN BY %d", (int)((value >> 56) - 1));
-    } else if (value < -(ONE64 << 56)) {
-        sprintf(eval_str, "HUMAN CAN WIN BY %d", (int)(-(value >> 56) - 1));
-    } else {
-        eval_str[0] = '\0';
-    }
-}
 
 // -----------------  CHOOSE BEST MOVE (RECURSIVE ROUTINE)  -----------------
 
@@ -585,9 +573,7 @@ static int64_t heuristic(const board_t *b, bool maximizing_player, bool game_ove
     value += (diagonal_gateways_to_corner(b) << 32);
     value += (edge_gateway_to_corner(b) << 24);
     value += (reasonable_moves(b, pm) << 16);
-    if (b->black_cnt + b->white_cnt < RANDOMIZE_OPENING) {
-        value += ((random() & 127) - 64);
-    }
+    value += ((random() & 127) - 64);
 
     // the returned heuristic value measures the favorability 
     // for the maximizing player

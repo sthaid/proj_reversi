@@ -703,7 +703,11 @@ static void render_game_mode(pane_cx_t *pane_cx)
     }
 
     register_event(pane_cx, -1, 0, SDL_EVENT_SHOW_EVAL, "EVAL=%c", CONFIG_SHOW_EVAL_YN);
+#ifndef ANDROID
     register_event(pane_cx, -1, 10, SDL_EVENT_SHOW_MOVE, "MOVE=%c", CONFIG_SHOW_MOVE_YN);
+#else
+    register_event(pane_cx, -1, -6, SDL_EVENT_SHOW_MOVE, "MOVE=%c", CONFIG_SHOW_MOVE_YN);
+#endif
 
     // display game status
     int offset = FONTSZ/2 - status_circle_radius;
