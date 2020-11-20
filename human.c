@@ -2,7 +2,7 @@
 
 // -----------------  HUMAN PLAYER - GET_MOVE -------------------------------
 
-int human_get_move(int level, const board_t *b, char *eval_str)
+int human_get_move(int level, const board_t *b, char *eval_str, bool *is_book_move)
 {
     #define CHILD(mv) \
         ({ b_child = *b; \
@@ -14,6 +14,9 @@ int human_get_move(int level, const board_t *b, char *eval_str)
     int              move;
     int              i;
     board_t          b_child;
+
+    // human does not return book moves
+    *is_book_move = false;
 
     // get possible moves
     get_possible_moves(b, &pm);

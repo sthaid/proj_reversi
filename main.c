@@ -65,7 +65,7 @@ typedef struct {
 } game_moves_t;
 
 typedef struct {
-    int (*get_move)(int level, const board_t *b, char *eval_str);
+    int (*get_move)(int level, const board_t *b, char *eval_str, bool *is_book_move);
     int   level;
     char  name[100];
 } player_t;
@@ -107,7 +107,8 @@ static void *game_thread(void *cx);
 static void game_mode_get_players(player_t **pb, player_t **pw);
 static void tournament_get_players(player_t **pb, player_t **pw);
 static void tournament_tally_game_result(void);
-static void debug_print_game_duration(uint64_t game_start_us);
+static void debug_print_game_stats(bool tournament_game, uint64_t game_duration_us, 
+        int black_book_move_cnt, int white_book_move_cnt);
 
 static int pane_hndlr(pane_cx_t *pane_cx, int request, void * init_params, sdl_event_t * event);
 
@@ -228,7 +229,9 @@ static void *game_thread(void *cx)
     int  move;
     bool tournament_game;
     player_t *player;
-    uint64_t game_start_us;
+    uint64_t game_start_us, game_duration_us;
+    int black_book_move_cnt, white_book_move_cnt;
+    bool is_book_move;
 
 restart:
     // init the first game_move, including the starting board 
@@ -274,6 +277,8 @@ restart:
 
     // loop until game is finished
     game_start_us = microsec_timer();
+    black_book_move_cnt = 0;
+    white_book_move_cnt = 0;
     while (true) {
 again:
         // determine whose turn it is
@@ -294,7 +299,12 @@ again:
         //  displayed when displaying it is enabled
         move = player->get_move(player->level,
                                 &game_moves[max_game_moves-1].board, 
-                                game_moves[max_game_moves-1].eval_str);
+                                game_moves[max_game_moves-1].eval_str,
+                                &is_book_move);
+        if (is_book_move) {
+            (game_moves[max_game_moves-1].board.whose_turn == BLACK
+             ? black_book_move_cnt++ : white_book_move_cnt++);
+        }
 
         // if move returned is MOVE_GAME_OVER then break out of the game play loop
         if (move == MOVE_GAME_OVER) {
@@ -351,8 +361,9 @@ again:
                     ? game_moves[max_game_moves-1].highlight : NULL));
     }
 
-    // debug print game durations stats
-    debug_print_game_duration(game_start_us);
+    // debug print game stats
+    game_duration_us = microsec_timer() - game_start_us;
+    debug_print_game_stats(tournament_game, game_duration_us, black_book_move_cnt, white_book_move_cnt);
 
     // game is over
     game_state = GAME_STATE_COMPLETE;
@@ -424,24 +435,38 @@ static void tournament_tally_game_result(void)
     }
 }
 
-static void debug_print_game_duration(uint64_t game_start_us)
+static void debug_print_game_stats(bool tournament_game, uint64_t game_duration_us, 
+                                   int black_book_move_cnt, int white_book_move_cnt)
 {
-    uint64_t duration_us;
-    static uint64_t sum_duration_us;
     static int game_count;
+    static uint64_t sum_game_duration_us;
+    static bool tournament_game_last;
 
-    duration_us = microsec_timer() - game_start_us;
-    sum_duration_us += duration_us;
-    game_count++;
+#ifdef ANDROID
+    return;
+#endif
 
-    if ((game_count % 100) != 0) {
-        return;
+    if (tournament_game != tournament_game_last) {
+        game_count = 0;
+        sum_game_duration_us = 0;
+        tournament_game_last = tournament_game;
     }
 
-    INFO("GAME count=%d  duration=%0.3f secs  avg_dur=%0.3f secs\n",
-         game_count,
-         duration_us/1000000.,
-         sum_duration_us/1000000./game_count);
+    game_count++;
+    sum_game_duration_us += game_duration_us;
+
+    if (tournament_game == false) {
+        INFO("NORMAL GAME count=%d  duration=%0.3f  book_move_cnt=%d %d\n",
+             game_count,
+             game_duration_us/1000000.,
+             black_book_move_cnt, white_book_move_cnt);
+    } else {
+        INFO("TOURNAMENT GAME count=%d  duration=%0.3f  avg=%0.3f  book_move_cnt=%d %d\n",
+             game_count,
+             game_duration_us/1000000.,
+             sum_game_duration_us/1000000./game_count,
+             black_book_move_cnt, white_book_move_cnt);
+    }
 }
 
 bool move_cancelled(void)

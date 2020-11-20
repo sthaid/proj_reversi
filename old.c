@@ -46,7 +46,7 @@ static inline int get_depth(int level, int piececnt)
 #ifdef CPU_C
 static void create_eval_str(int64_t value, char *eval_str);
 
-int cpu_get_move(int level, const board_t *b, char *eval_str)
+int cpu_get_move(int level, const board_t *b, char *eval_str, bool *is_book_move)
 {
     int64_t value;
     int     move, depth, piececnt;
@@ -63,12 +63,14 @@ int cpu_get_move(int level, const board_t *b, char *eval_str)
         initialized = true;
     }
     piececnt = b->black_cnt + b->white_cnt;
+    *is_book_move = false;
 
     // book move lookup
     if (BOOK_MOVE_ENABLED) {
         move = bm_get_move(b);
         if (move != MOVE_NONE) {
             if (eval_str) eval_str[0] = '\0';
+            *is_book_move = true;
             return move;
         }
     }
@@ -141,7 +143,7 @@ static void create_eval_str(int64_t value, char *eval_str)
 // - old_get_move does not updae eval_str
 
 #ifdef OLD_C
-int old_get_move(int level, const board_t *b, char *eval_str)
+int old_get_move(int level, const board_t *b, char *eval_str, bool *is_book_move)
 {
     int move, depth, piececnt;
 
@@ -156,12 +158,14 @@ int old_get_move(int level, const board_t *b, char *eval_str)
         initialized = true;
     }
     piececnt = b->black_cnt + b->white_cnt;
+    *is_book_move = false;
 
 #if 0
     // book move lookup
     if (BOOK_MOVE_ENABLED && !BOOK_MOVE_GEN_MODE) {
         move = bm_get_move(b);
         if (move != MOVE_NONE) {
+            *is_book_move = true;
             return move;
         }
     }

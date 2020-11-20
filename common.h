@@ -95,9 +95,9 @@ extern char *version;
 // prototypes
 //
 
-int human_get_move(int level, const board_t *b, char *eval_str);
-int cpu_get_move(int level, const board_t *b, char *eval_str);
-int old_get_move(int level, const board_t *b, char *eval_str);
+int human_get_move(int level, const board_t *b, char *eval_str, bool *is_book_move);
+int cpu_get_move(int level, const board_t *b, char *eval_str, bool *is_book_move);
+int old_get_move(int level, const board_t *b, char *eval_str, bool *is_book_move);
 
 bool move_cancelled(void);
 
