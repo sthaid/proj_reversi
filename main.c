@@ -36,11 +36,12 @@
 #endif
 
 #define CONFIG_FILENAME ".reversi_config"
-#define CONFIG_VERSION  1
+#define CONFIG_VERSION  2
 #define CONFIG_PLAYER_BLACK_IDX_STR  (config[0].value)
 #define CONFIG_PLAYER_WHITE_IDX_STR  (config[1].value)
 #define CONFIG_SHOW_MOVE_YN          (config[2].value[0])
 #define CONFIG_SHOW_EVAL_YN          (config[3].value[0])
+#define CONFIG_BOOK_MOVE_YN          (config[4].value[0])
 
 //
 // typedefs
@@ -96,6 +97,7 @@ static config_t            config[] = { { "player_black_idx",   "0" },
                                         { "player_white_idx",   "5" },
                                         { "show_move",          "Y" },
                                         { "show_eval",          "Y" },
+                                        { "book_move",          "Y" },
                                         { "",                   ""  } };
 
 //
@@ -127,12 +129,13 @@ int main(int argc, char **argv)
     // seed random number generator
     srandom(microsec_timer());
 
-    // get options
-    // -f : fullscreen
-    // -x : disable book move lookup
-    // -g : enable book move generator mode
+    // get options, these options can not be set on the Android version;
+    //              use config for options that pertain to both the 
+    //              Linux and Android versions
+    //   -f : fullscreen
+    //   -g : enable book move generator mode
     while (true) {
-        opt_char = getopt(argc, argv, "fxg");
+        opt_char = getopt(argc, argv, "fg");
         if (opt_char == 0xff) {
             break;
         }
@@ -140,12 +143,7 @@ int main(int argc, char **argv)
         case 'f':
             opt_fullscreen = true;
             break;
-        case 'x':
-            opt_book_move_disabled = true;
-            opt_book_move_gen_mode = false;
-            break;
         case 'g':
-            opt_book_move_disabled = false;
             opt_book_move_gen_mode = true;
             break;
         default:
@@ -155,7 +153,6 @@ int main(int argc, char **argv)
     }
     INFO("OPTIONS:\n");
     INFO("  opt_fullscreen         = %s\n", bool2str(opt_fullscreen));
-    INFO("  opt_book_move_disabled = %s\n", bool2str(opt_book_move_disabled));
     INFO("  opt_book_move_gen_mode = %s\n", bool2str(opt_book_move_gen_mode));
 
     // init array of available players
@@ -190,11 +187,10 @@ int main(int argc, char **argv)
     INFO("  CONFIG_PLAYER_WHITE_IDX_STR = %s\n", CONFIG_PLAYER_WHITE_IDX_STR);
     INFO("  CONFIG_SHOW_MOVE_YN         = %c\n", CONFIG_SHOW_MOVE_YN);
     INFO("  CONFIG_SHOW_EVAL_YN         = %c\n", CONFIG_SHOW_EVAL_YN);
+    INFO("  CONFIG_BOOK_MOVE_YN         = %c\n", CONFIG_BOOK_MOVE_YN);
     
     // book move initialization
-    if (BOOK_MOVE_ENABLED) {
-        bm_init(opt_book_move_gen_mode);
-    }
+    bm_init(opt_book_move_gen_mode);
 
     // create game_thread, and
     // wait for player_black and player_white to be initialized by the game_thread
@@ -220,6 +216,11 @@ int main(int argc, char **argv)
     // program terminating
     INFO("TERMINATING\n");
     return 0;
+}
+
+bool book_move_enabled(void)
+{
+    return CONFIG_BOOK_MOVE_YN == 'Y';
 }
 
 // -----------------  GAME THREAD  ------------------------------------------------
@@ -519,9 +520,10 @@ bool move_cancelled(void)
 #define SDL_EVENT_CHOOSE_WHITE_PLAYER     (SDL_EVENT_USER_DEFINED + 24)
 #define SDL_EVENT_SHOW_EVAL               (SDL_EVENT_USER_DEFINED + 25)
 #define SDL_EVENT_SHOW_MOVE               (SDL_EVENT_USER_DEFINED + 26)
-#define SDL_EVENT_HUMAN_MOVE_PASS         (SDL_EVENT_USER_DEFINED + 27)
-#define SDL_EVENT_HUMAN_UNDO              (SDL_EVENT_USER_DEFINED + 28)
-#define SDL_EVENT_HUMAN_MOVE_SELECT       (SDL_EVENT_USER_DEFINED + 29)   // length 100
+#define SDL_EVENT_BOOK_MOVE               (SDL_EVENT_USER_DEFINED + 27)
+#define SDL_EVENT_HUMAN_MOVE_PASS         (SDL_EVENT_USER_DEFINED + 28)
+#define SDL_EVENT_HUMAN_UNDO              (SDL_EVENT_USER_DEFINED + 29)
+#define SDL_EVENT_HUMAN_MOVE_SELECT       (SDL_EVENT_USER_DEFINED + 30)   // length 100
 
 // game mode, choose player events
 #define SDL_EVENT_CHOOSE_PLAYER_SELECT    (SDL_EVENT_USER_DEFINED + 140)   // legnth max_avail_players
@@ -728,11 +730,8 @@ static void render_game_mode(pane_cx_t *pane_cx)
     }
 
     register_event(pane_cx, -1, 0, SDL_EVENT_SHOW_EVAL, "EVAL=%c", CONFIG_SHOW_EVAL_YN);
-#ifndef ANDROID
-    register_event(pane_cx, -1, 10, SDL_EVENT_SHOW_MOVE, "MOVE=%c", CONFIG_SHOW_MOVE_YN);
-#else
-    register_event(pane_cx, -1, -6, SDL_EVENT_SHOW_MOVE, "MOVE=%c", CONFIG_SHOW_MOVE_YN);
-#endif
+    register_event(pane_cx, -1, -6, SDL_EVENT_SHOW_MOVE, "SHOW=%c", CONFIG_SHOW_MOVE_YN);
+    register_event(pane_cx, -3, -6, SDL_EVENT_BOOK_MOVE, "BOOK=%c", CONFIG_BOOK_MOVE_YN);
 
     // display game status
     int offset = FONTSZ/2 - status_circle_radius;
@@ -814,6 +813,10 @@ static int event_game_mode(pane_cx_t *pane_cx, sdl_event_t *event)
         break;
     case SDL_EVENT_SHOW_MOVE:
         CONFIG_SHOW_MOVE_YN = (CONFIG_SHOW_MOVE_YN == 'N' ? 'Y' : 'N');
+        config_write();
+        break;
+    case SDL_EVENT_BOOK_MOVE:
+        CONFIG_BOOK_MOVE_YN = (CONFIG_BOOK_MOVE_YN == 'N' ? 'Y' : 'N');
         config_write();
         break;
     case SDL_EVENT_HUMAN_MOVE_PASS:
@@ -976,6 +979,17 @@ static void render_help_mode(pane_cx_t *pane_cx)
         sdl_render_text(pane, 0, y, FONTSZ_HELP, lines[i], SDL_WHITE, SDL_BLACK);
     }
 
+#if 0
+    // clear bottom area of pane, where the events being registered by the code
+    // below, will be displayed
+    rect_t loc;
+    loc.x = 0;
+    loc.y = pane->h - 1.0 * sdl_font_char_height(FONTSZ);
+    loc.w = pane->w;
+    loc.h = pane->h - loc.y;
+    sdl_render_fill_rect(pane, &loc, SDL_BLACK);
+#endif
+
     // register help events to scroll the help text and exit help mode
     sdl_register_event(pane, pane, SDL_EVENT_HELP_MOUSE_WHEEL, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
     sdl_register_event(pane, pane, SDL_EVENT_HELP_MOUSE_MOTION, SDL_EVENT_TYPE_MOUSE_MOTION, pane_cx);
@@ -1058,8 +1072,13 @@ static void register_event(pane_cx_t *pane_cx, double r, double c, int event, ch
     }
 
     // get x, y
-    x = (c >= 0 ? CTL_X + COL2X(c,FONTSZ) : win_width  + COL2X(c,FONTSZ));
-    y = (r >= 0 ? CTL_Y + ROW2Y(r,FONTSZ) : win_height + ROW2Y(r,FONTSZ));
+    if (!help_mode) {
+        x = (c >= 0 ? CTL_X + COL2X(c,FONTSZ) : win_width  + COL2X(c,FONTSZ));
+        y = (r >= 0 ? CTL_Y + ROW2Y(r,FONTSZ) : win_height + ROW2Y(r,FONTSZ));
+    } else {
+        x = (c >= 0 ? COL2X(c,FONTSZ) : win_width  + COL2X(c,FONTSZ));
+        y = (r >= 0 ? ROW2Y(r,FONTSZ) : win_height + ROW2Y(r,FONTSZ));
+    }
 
     // make str
     va_start(ap,fmt);

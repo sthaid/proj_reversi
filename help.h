@@ -18,8 +18,12 @@ When EVAL is enabled, in a HUMAN\n\
 vs CPU game, the CPU's evaluation\n\
 will be displayed.\n\
 \n\
-When MOVE is enabled the move and\n\
+When SHOW is enabled the move and\n\
 flipping pieces will highlight.\n\
+\n\
+When BOOK is enabled the CPU's \n\
+move may be obtained from a\n\
+preexisting book move file.\n\
 \n\
 ============\n\
 SOURCE CODE\n\

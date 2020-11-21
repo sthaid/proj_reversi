@@ -59,9 +59,6 @@
 
 #define MEMBER_SIZE(type, member) sizeof(((type *)0)->member)
 
-#define BOOK_MOVE_ENABLED  (!opt_book_move_disabled)
-#define BOOK_MOVE_GEN_MODE (opt_book_move_gen_mode)
-
 //
 // typedefs
 //
@@ -84,7 +81,6 @@ typedef struct {
 //
 
 bool opt_fullscreen;
-bool opt_book_move_disabled;
 bool opt_book_move_gen_mode;
 
 int  human_move_select;
@@ -95,11 +91,12 @@ extern char *version;
 // prototypes
 //
 
+bool move_cancelled(void);
+bool book_move_enabled(void);
+
 int human_get_move(int level, const board_t *b, char *eval_str, bool *is_book_move);
 int cpu_get_move(int level, const board_t *b, char *eval_str, bool *is_book_move);
 int old_get_move(int level, const board_t *b, char *eval_str, bool *is_book_move);
-
-bool move_cancelled(void);
 
 void apply_move(board_t *b, int move, unsigned char highlight[][10]);
 void get_possible_moves(const board_t *b, possible_moves_t *pm);

@@ -66,7 +66,7 @@ int cpu_get_move(int level, const board_t *b, char *eval_str, bool *is_book_move
     *is_book_move = false;
 
     // book move lookup
-    if (BOOK_MOVE_ENABLED) {
+    if (book_move_enabled() || opt_book_move_gen_mode) {
         move = bm_get_move(b);
         if (move != MOVE_NONE) {
             if (eval_str) eval_str[0] = '\0';
@@ -78,10 +78,10 @@ int cpu_get_move(int level, const board_t *b, char *eval_str, bool *is_book_move
     // get lookahead depth
     depth = get_depth(level, piececnt);
 
-    // if BOOK_MOVE_GEN_MODE is enabled and there are < 20 pieces on the board then
+    // if opt_book_move_gen_mode is enabled and there are < 20 pieces on the board then
     //   set a high lookahead depth of 10
     // endif
-    if (BOOK_MOVE_GEN_MODE && piececnt < 20) {
+    if (opt_book_move_gen_mode && piececnt < 20) {
         book_move_being_generated = true;
         depth = 10;
         INFO("bmgen - generating book move using depth %d\n", depth);
@@ -138,8 +138,8 @@ static void create_eval_str(int64_t value, char *eval_str)
 //   this increases the number of book moves that get saved in reversi.book
 //
 // Note:
-// - book move lookup is not currently performed by this routine; this allows tournament
-//   mode to quantify the benefit of the book move lookup that is performed in cpu_get_move
+// - book move lookup is not performed by this routine; this allows tournament
+//   mode to evaluate the benefit of the book move lookup that is performed in cpu_get_move
 // - old_get_move does not updae eval_str
 
 #ifdef OLD_C
@@ -160,17 +160,6 @@ int old_get_move(int level, const board_t *b, char *eval_str, bool *is_book_move
     piececnt = b->black_cnt + b->white_cnt;
     *is_book_move = false;
 
-#if 0
-    // book move lookup
-    if (BOOK_MOVE_ENABLED && !BOOK_MOVE_GEN_MODE) {
-        move = bm_get_move(b);
-        if (move != MOVE_NONE) {
-            *is_book_move = true;
-            return move;
-        }
-    }
-#endif
-
     // When generating book moves, cpu.c is generating the book moves, 
     //  in response to the moves which are determined by old.c.
     // If old.c were to always to pick what it considers the best move then
@@ -179,7 +168,7 @@ int old_get_move(int level, const board_t *b, char *eval_str, bool *is_book_move
     //  game, and with a probabilty of 0.10. 
     // Random number generator is reseeded every 100 games, this also
     //  adds to game variety.
-    if (BOOK_MOVE_GEN_MODE) {
+    if (opt_book_move_gen_mode) {
         static unsigned int game_count;
         if (piececnt <= 5) {
             INFO("game_count=%d\n", game_count);
