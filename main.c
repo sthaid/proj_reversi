@@ -97,7 +97,7 @@ static config_t            config[] = { { "player_black_idx",   "0" },
                                         { "player_white_idx",   "5" },
                                         { "show_move",          "Y" },
                                         { "show_eval",          "Y" },
-                                        { "book_move",          "Y" },
+                                        { "book_move",          "N" },
                                         { "",                   ""  } };
 
 //
@@ -508,6 +508,7 @@ bool move_cancelled(void)
 #define SDL_EVENT_HELP_EXIT               (SDL_EVENT_USER_DEFINED + 5)
 #define SDL_EVENT_HELP_MOUSE_WHEEL        (SDL_EVENT_USER_DEFINED + 6)
 #define SDL_EVENT_HELP_MOUSE_MOTION       (SDL_EVENT_USER_DEFINED + 7)
+#define SDL_EVENT_HELP_BOOK_MOVE          (SDL_EVENT_USER_DEFINED + 8)
 
 // tournament mode events
 #define SDL_EVENT_SET_GAME_MODE           (SDL_EVENT_USER_DEFINED + 10)
@@ -520,10 +521,9 @@ bool move_cancelled(void)
 #define SDL_EVENT_CHOOSE_WHITE_PLAYER     (SDL_EVENT_USER_DEFINED + 24)
 #define SDL_EVENT_SHOW_EVAL               (SDL_EVENT_USER_DEFINED + 25)
 #define SDL_EVENT_SHOW_MOVE               (SDL_EVENT_USER_DEFINED + 26)
-#define SDL_EVENT_BOOK_MOVE               (SDL_EVENT_USER_DEFINED + 27)
-#define SDL_EVENT_HUMAN_MOVE_PASS         (SDL_EVENT_USER_DEFINED + 28)
-#define SDL_EVENT_HUMAN_UNDO              (SDL_EVENT_USER_DEFINED + 29)
-#define SDL_EVENT_HUMAN_MOVE_SELECT       (SDL_EVENT_USER_DEFINED + 30)   // length 100
+#define SDL_EVENT_HUMAN_MOVE_PASS         (SDL_EVENT_USER_DEFINED + 27)
+#define SDL_EVENT_HUMAN_UNDO              (SDL_EVENT_USER_DEFINED + 28)
+#define SDL_EVENT_HUMAN_MOVE_SELECT       (SDL_EVENT_USER_DEFINED + 29)   // length 100
 
 // game mode, choose player events
 #define SDL_EVENT_CHOOSE_PLAYER_SELECT    (SDL_EVENT_USER_DEFINED + 140)   // legnth max_avail_players
@@ -731,7 +731,6 @@ static void render_game_mode(pane_cx_t *pane_cx)
 
     register_event(pane_cx, -1, 0, SDL_EVENT_SHOW_EVAL, "EVAL=%c", CONFIG_SHOW_EVAL_YN);
     register_event(pane_cx, -1, -6, SDL_EVENT_SHOW_MOVE, "SHOW=%c", CONFIG_SHOW_MOVE_YN);
-    register_event(pane_cx, -3, -6, SDL_EVENT_BOOK_MOVE, "BOOK=%c", CONFIG_BOOK_MOVE_YN);
 
     // display game status
     int offset = FONTSZ/2 - status_circle_radius;
@@ -813,10 +812,6 @@ static int event_game_mode(pane_cx_t *pane_cx, sdl_event_t *event)
         break;
     case SDL_EVENT_SHOW_MOVE:
         CONFIG_SHOW_MOVE_YN = (CONFIG_SHOW_MOVE_YN == 'N' ? 'Y' : 'N');
-        config_write();
-        break;
-    case SDL_EVENT_BOOK_MOVE:
-        CONFIG_BOOK_MOVE_YN = (CONFIG_BOOK_MOVE_YN == 'N' ? 'Y' : 'N');
         config_write();
         break;
     case SDL_EVENT_HUMAN_MOVE_PASS:
@@ -979,9 +974,9 @@ static void render_help_mode(pane_cx_t *pane_cx)
         sdl_render_text(pane, 0, y, FONTSZ_HELP, lines[i], SDL_WHITE, SDL_BLACK);
     }
 
-#if 0
+#ifdef ANDROID
     // clear bottom area of pane, where the events being registered by the code
-    // below, will be displayed
+    // below will be displayed
     rect_t loc;
     loc.x = 0;
     loc.y = pane->h - 1.0 * sdl_font_char_height(FONTSZ);
@@ -994,6 +989,11 @@ static void render_help_mode(pane_cx_t *pane_cx)
     sdl_register_event(pane, pane, SDL_EVENT_HELP_MOUSE_WHEEL, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
     sdl_register_event(pane, pane, SDL_EVENT_HELP_MOUSE_MOTION, SDL_EVENT_TYPE_MOUSE_MOTION, pane_cx);
     register_event(pane_cx, -1, -4, SDL_EVENT_HELP_EXIT, "BACK");
+#ifndef ANDROID
+    register_event(pane_cx, -3, -6, SDL_EVENT_HELP_BOOK_MOVE, "BOOK=%c", CONFIG_BOOK_MOVE_YN);
+#else
+    register_event(pane_cx, -1,  0, SDL_EVENT_HELP_BOOK_MOVE, "BOOK=%c", CONFIG_BOOK_MOVE_YN);
+#endif
 }
 
 static int event_help_mode(pane_cx_t *pane_cx, sdl_event_t *event)
@@ -1012,6 +1012,11 @@ static int event_help_mode(pane_cx_t *pane_cx, sdl_event_t *event)
 
     case SDL_EVENT_HELP_MOUSE_MOTION:
         y_top_help += event->mouse_motion.delta_y;
+        break;
+
+    case SDL_EVENT_HELP_BOOK_MOVE:
+        CONFIG_BOOK_MOVE_YN = (CONFIG_BOOK_MOVE_YN == 'N' ? 'Y' : 'N');
+        config_write();
         break;
 
     case SDL_EVENT_HELP_EXIT:
