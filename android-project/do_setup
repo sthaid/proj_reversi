@@ -58,9 +58,10 @@ ln -s ../../../../../../../../reversi.book .
 
 # patch the following files:
 # - $BUILD/app/jni/src/Android.mk  
-# - $BUILD/app/src/main/AndroidManifest.xml 
 # - $BUILD/app/src/main/res/values/strings.xml 
-echo "Patching Android.mk, AndroidManifest.xml, and strings.xml"
+# - $BUILD/app/build.gradle
+# - $BUILD/app/src/main/AndroidManifest.xml   (not being patched now)
+echo "Applying patches to template build directory"
 cd $TOP/SDL2-2.0.12
 patch -p1 < $TOP/setup_files/setup.patch
 echo

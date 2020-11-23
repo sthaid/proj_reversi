@@ -28,3 +28,22 @@
 -    <string name="app_name">Game</string>
 +    <string name="app_name">Reversi</string>
  </resources>
+--- SDL2-2.0.12/build/org.sthaid.reversi/app/build.gradle	2020-11-22 19:26:30.386873912 -0500
++++ new/build/org.sthaid.reversi/app/build.gradle	2020-11-22 19:28:32.952625272 -0500
+@@ -8,13 +8,13 @@
+ }
+ 
+ android {
+-    compileSdkVersion 26
++    compileSdkVersion 29
+     defaultConfig {
+         if (buildAsApplication) {
+             applicationId "org.sthaid.reversi"
+         }
+         minSdkVersion 16
+-        targetSdkVersion 26
++        targetSdkVersion 29
+         versionCode 1
+         versionName "1.0"
+         externalNativeBuild {
+
