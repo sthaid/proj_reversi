@@ -1,3 +1,8 @@
+// build and run example:
+//
+// gcc -Wall `sdl2-config --cflags` -lSDL2 -lSDL2_ttf -lpng -o create_ic_launcher create_ic_launcher.c
+// ./create_ic_launcher icon.png 512
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>

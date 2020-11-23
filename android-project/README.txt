@@ -173,6 +173,61 @@ Sample adb commands for development & debugging:
 - adb uninstall  org.sthaid.reversi         # uninstall
 - adb shell getprop ro.product.cpu.abilist  # get list of ABI supported by the device
 
+==============================
+PUBLISH ON GOOGLE PLAY
+==============================
+
+Building Release APK:
+- do_setup:                  creates the SDL2 directory structure
+- do_release_genkey:         do this just once; the reversi.keystore that 
+                             is checked in can only be used by me; be sure
+                             to not misplace the keystore file, as it will
+                             be needed to make future updates on Google Play
+- do_release_build_and_sign: builds the unsigned release apk;
+                             uses zipalign to create the release aligned apk;
+                             signs the release aligned apk
+- do_release_install:        installs the app-release-aligned.apk on your device;
+                             refer to "CONNECTING DEVICE TO DEVEL SYSTEM"
+- test on device:            if all okay then Publish on Google Play
+                             
+Publish on Google Play:
+- https://play.google.com/console/developers
+- Select 'Create app', key things that are needed:
+  - Privacy Policy URL
+    . Privacy policy is a complex subject, websites are available to create and
+      host privacy policy
+    . Since reversi doesn't collect personal data, I provide privacy_policy.md,
+      on github, containing "No personal data is collected.".
+  - App Icon 512x512
+    . I used setup_files/create_ic_launcher.c.
+  - Feature Graphic 1024x500
+    . I captured a screenshot from the linux version of Reversi, which is landscape;
+      and scaled to 1024x500, using proj_jpeg_merge/image_merge program.
+         $ ./image_merge -o 1024x500 screenshot.jpg           
+  - Two phone screenshots
+    . Use this to caputure screenshot "adb shell screencap -p > img.png".
+  - Signed release apk
+    . app/build/outputs/apk/release/app-release-aligned.apk
+  
+When publishing was completed, the following release warnings were provided,
+these don't seem serious.
+1) This APK results in unused code and resources being sent to users. 
+   Your app could be smaller if you used the Android App Bundle. 
+   By not optimizing your app for device configurations, your app is 
+   larger to download and install on users' devices than it needs to be. 
+   Larger apps see lower install success rates and take up storage on users' devices.
+2) This APK contains Java/Kotlin code, which might be obfuscated. We recommend 
+   you upload a deobfuscation file to make your crashes and ANRs easier to analyze and debug.
+3) This APK contains native code, and you've not uploaded debug symbols. 
+   We recommend you upload a symbol file to make your crashes and ANRs easier 
+   to analyze and debug. Learn More
+
+Note - the size of reversi release APK is just 3.6M.
+
+References, regarding signing:
+- https://stackoverflow.com/questions/10930331/how-to-sign-an-already-compiled-apk
+- https://developer.android.com/studio/publish/app-signing.html#generate-key
+
 ==================================================================================
 ==============================  MORE INFO  =======================================
 ==================================================================================
