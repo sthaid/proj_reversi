@@ -28,14 +28,3 @@ The look ahead depth is determined based on CPU difficulty level.
 
 When the look ahead depth is reached, or the game is over, then a heuristic evaluation of the
 board is performed. The move is chosen which leads to the highest heuristic value.
-
-The heuristic evaluation takes the following into account, listed in order of importance:
-- winning
-- number of corner squares
-- number of squares diagonally inside an unoccupied corner
-- number of possible moves
-
-## Future Impovements
-
-Improve heuristic evaluation. For example check for edge patterns that lead to
-corner capture.
