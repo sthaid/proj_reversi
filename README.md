@@ -12,8 +12,6 @@
 
 ## Program Overview
 
-Source code is on github: [Source_Code](https://github.com/sthaid/proj_reversi)
-
 This program has been tested on Fedora, Ubuntu, and Android.
 
 This program is primarily intended for games between a Human and the
