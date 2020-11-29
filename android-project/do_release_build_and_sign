@@ -7,7 +7,7 @@ echo "char *version = \"`git log -1 --format=%h`\";" > app/jni/src/version.c
 echo
 
 echo "BUILD"
-./gradlew assemble
+./gradlew assembleRelease
 if [ $? -ne 0 ]; then
   echo "*** ERROR BUILD FAILED ***"
   exit 1

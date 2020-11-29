@@ -55,7 +55,20 @@
 -    android:versionCode="1"
 -    android:versionName="1.0"
 +    android:versionCode="2"
-+    android:versionName="1.1"
++    android:versionName="1.2"
      android:installLocation="auto">
  
      <!-- OpenGL ES 2.0 -->
+--- SDL2-2.0.12/build/org.sthaid.reversi/app/build.gradle	2020-11-28 21:54:36.249243688 -0500
++++ new/build/org.sthaid.reversi/app/build.gradle	2020-11-28 21:54:54.317071628 -0500
+@@ -15,8 +15,8 @@
+         }
+         minSdkVersion 16
+         targetSdkVersion 29
+-        versionCode 1
+-        versionName "1.0"
++        versionCode 2
++        versionName "1.2"
+         externalNativeBuild {
+             ndkBuild {
+                 arguments "APP_PLATFORM=android-16"
