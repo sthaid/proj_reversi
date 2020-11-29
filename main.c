@@ -174,7 +174,7 @@ int main(int argc, char **argv)
     tournament_players[3] = CPU_PLAYER(4);
     tournament_players[4] = CPU_PLAYER(5);
     tournament_players[5] = CPU_PLAYER(6);
-    max_tournament_players = 6;
+    max_tournament_players = 5;
 
     // read configuration file, and print values
     if (config_read(CONFIG_FILENAME, config, CONFIG_VERSION) < 0) {
