@@ -46,4 +46,16 @@
          versionCode 1
          versionName "1.0"
          externalNativeBuild {
-
+--- SDL2-2.0.12/build/org.sthaid.reversi/app/src/main/AndroidManifest.xml	2020-11-28 20:43:08.144469881 -0500
++++ new/build/org.sthaid.reversi/app/src/main/AndroidManifest.xml	2020-11-28 21:03:30.831624274 -0500
+@@ -4,8 +4,8 @@
+ -->
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+     package="org.sthaid.reversi"
+-    android:versionCode="1"
+-    android:versionName="1.0"
++    android:versionCode="2"
++    android:versionName="1.1"
+     android:installLocation="auto">
+ 
+     <!-- OpenGL ES 2.0 -->
