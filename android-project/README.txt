@@ -113,30 +113,7 @@ This sample App will be installed as 'Game' App on your device.
 Try running it.
 
 ==============================
-BUILD REVERSI APP - OUTILINE OF STEPS
-==============================
-
-NOTE: Refer to the section below for a script that performs these steps.
-
-Building the Reversi Program:
-- download and extract SDL2-2.0.12.tar.gz
-- create a template for building reversi
-    $ ./androidbuild.sh org.sthaid.reversi stub.c
-- Note: the following dirs are relative to SDL2-2.0.12/build/org.sthaid.reversi
-- in dir app/jni:
-  - add additional subdirs, with source code and Android.mk, for additional libraries 
-    that are needed (SDL2_ttf-2.0.15 and jpeg8d)
-- in dir app/jni/src: 
-  - add symbolic links to the source code needed to build reversi
-  - in Android.mk, set LOCAL_C_INCLUDES, LOCAL_SRC_FILES, and LOCAL_SHARED_LIBRARIES
-- in dir app/src/main/AndroidManifest.xml - no updates
-- in dir app/src/main/res/values
-  - update strings.xml with the desired AppName
-- in dir .
-  - run ./gradlew installDebug, to build and install the app on the device
-
-==============================
-BUILD REVERSI APP - USING SHELL SCRIPT
+BUILD REVERSI APP
 ==============================
 
 First follow the steps in these sections:
@@ -154,24 +131,16 @@ Sanity Checks:
   Debug prints should be shown once the reversi app is built, installed, and run.
 
 Setup the build directory structure:
-- Run do_setup.
+- cd android-project
+- do_setup 
   This should create the SDL2-2.0.12, and SDL2-2.0.12/build/org.sthaid.reversi dirs.
 
-Build and install on your device
-- Run do_build_and_install
-  The installed app name is 'Reversi', with the SDL icon.
+Build and install on your device, this installs a 'Debug' build.
+- do_debug_build_and_install
+  The installed app name is 'Reversi'.
 
-==============================
-SOME ADB COMMANDS, USED FOR DEVELOPMENT & DEBUGGING
-==============================
-
-Sample adb commands for development & debugging:
-- adb devices                               # lists attached devices
-- adb shell logcat -s SDL/APP               # view debug prints
-- adb install -r ./app/build/outputs/apk/debug/app-debug.apk  
-                                            # install (usually done by gradle)
-- adb uninstall  org.sthaid.reversi         # uninstall
-- adb shell getprop ro.product.cpu.abilist  # get list of ABI supported by the device
+Refer to the next section on how to make a 'Release' build which can be 
+published on the Google Play store.
 
 ==============================
 PUBLISH ON GOOGLE PLAY
@@ -209,7 +178,7 @@ Publish on Google Play:
   - Signed release apk
     . app/build/outputs/apk/release/app-release-aligned.apk
   
-When publishing was completed, the following release warnings were provided,
+When publishing was completed, the following release warnings were displayed,
 these don't seem serious.
 1) This APK results in unused code and resources being sent to users. 
    Your app could be smaller if you used the Android App Bundle. 
@@ -283,6 +252,14 @@ Examples:
 ==============================
 APPENDIX - ADB (ANDROID DEBUG BRIDGE)
 ==============================
+
+commonly used adb commands:
+- adb devices                               # lists attached devices
+- adb shell logcat -s SDL/APP               # view debug prints
+- adb install -r ./app/build/outputs/apk/debug/app-debug.apk  
+                                            # install (usually done by gradle)
+- adb uninstall  org.sthaid.reversi         # uninstall
+- adb shell getprop ro.product.cpu.abilist  # get list of ABI supported by the device
 
 adb
 - options
