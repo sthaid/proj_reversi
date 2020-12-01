@@ -727,8 +727,8 @@ static void render_game_mode(pane_cx_t *pane_cx)
         register_event(pane_cx, 2, 0, SDL_EVENT_START_GAME, "START");
     }
 
-    register_event(pane_cx, -1, 0, SDL_EVENT_SHOW_EVAL, "EVAL=%c", CONFIG_SHOW_EVAL_YN);
-    register_event(pane_cx, -1, -6, SDL_EVENT_SHOW_MOVE, "SHOW=%c", CONFIG_SHOW_MOVE_YN);
+    register_event(pane_cx, -1.5, 0, SDL_EVENT_SHOW_EVAL, "EVAL=%c", CONFIG_SHOW_EVAL_YN);
+    register_event(pane_cx, -1.5, -6, SDL_EVENT_SHOW_MOVE, "SHOW=%c", CONFIG_SHOW_MOVE_YN);
 
     // display game status
     int offset = FONTSZ/2 - status_circle_radius;
@@ -977,7 +977,7 @@ static void render_help_mode(pane_cx_t *pane_cx)
     // below will be displayed
     rect_t loc;
     loc.x = 0;
-    loc.y = pane->h - 1.0 * sdl_font_char_height(FONTSZ);
+    loc.y = pane->h - 1.5 * sdl_font_char_height(FONTSZ);
     loc.w = pane->w;
     loc.h = pane->h - loc.y;
     sdl_render_fill_rect(pane, &loc, SDL_BLACK);
@@ -986,11 +986,11 @@ static void render_help_mode(pane_cx_t *pane_cx)
     // register help events to scroll the help text and exit help mode
     sdl_register_event(pane, pane, SDL_EVENT_HELP_MOUSE_WHEEL, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
     sdl_register_event(pane, pane, SDL_EVENT_HELP_MOUSE_MOTION, SDL_EVENT_TYPE_MOUSE_MOTION, pane_cx);
-    register_event(pane_cx, -1, -4, SDL_EVENT_HELP_EXIT, "BACK");
+    register_event(pane_cx, -1.5, -4, SDL_EVENT_HELP_EXIT, "BACK");
 #ifndef ANDROID
     register_event(pane_cx, -3, -6, SDL_EVENT_HELP_BOOK_MOVE, "BOOK=%c", CONFIG_BOOK_MOVE_YN);
 #else
-    register_event(pane_cx, -1,  0, SDL_EVENT_HELP_BOOK_MOVE, "BOOK=%c", CONFIG_BOOK_MOVE_YN);
+    register_event(pane_cx, -1.5,  0, SDL_EVENT_HELP_BOOK_MOVE, "BOOK=%c", CONFIG_BOOK_MOVE_YN);
 #endif
 }
 
