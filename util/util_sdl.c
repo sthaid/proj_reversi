@@ -165,10 +165,20 @@ int32_t sdl_init(int32_t *w, int32_t *h, bool fullscreen, bool resizeable, bool 
         ERROR("SDL_CreateWindowAndRenderer failed\n");
         return -1;
     }
+    sdl_poll_event();
 #else
     if (SDL_CreateWindowAndRenderer(0, 0, SDL_WINDOW_FULLSCREEN, &sdl_window, &sdl_renderer) != 0) {
         ERROR("SDL_CreateWindowAndRenderer failed\n");
         return -1;
+    }
+    for (i = 0; i < 50; i++) {
+        sdl_event_t *event;
+        event = sdl_poll_event();
+        if (event->event_id == SDL_EVENT_WIN_SIZE_CHANGE) {
+            INFO("got SDL_EVENT_WIN_SIZE_CHANGE, i = %d\n", i);
+            break;
+        }
+        usleep(10000);
     }
 #endif
 
