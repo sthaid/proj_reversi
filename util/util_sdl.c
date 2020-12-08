@@ -187,6 +187,7 @@ int32_t sdl_init(int32_t *w, int32_t *h, bool fullscreen, bool resizeable, bool 
     SDL_GetWindowSize(sdl_window, w, h);
     sdl_win_width  = *w;
     sdl_win_height = *h;
+    INFO("sdl_win_width=%d sdl_win_height=%d\n", sdl_win_width, sdl_win_height);
 
 #ifdef ENABLE_UTIL_SDL_BUTTON_SOUND
     // init button_sound
