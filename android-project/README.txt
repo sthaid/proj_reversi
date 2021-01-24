@@ -21,7 +21,46 @@ Reference Web Sites
     https://developer.android.com/studio/run/device
 
 ==============================
-CONFIGURING THE DEVELOPMENT SYSTEM
+CONFIGURING THE DEVELOPMENT SYSTEM (UBUNTU 20.04.1)
+==============================
+
+#
+# install androidsdk, this will install it to /snap/androidsdk
+#
+sudo snap install androidsdk
+
+#
+# install other packages
+#
+sudo apt install openjdk-8-jre
+sudo apt install openjdk-8-jdk-headless
+sudo apt install ant
+
+#
+# run sdkmanager to install android platform, build-tools, and ndk;
+# these will install under $ANDROID_HOME
+#
+mkdir ~/androidsdk
+export ANDROID_HOME=~/androidsdk
+sdkmanager="/snap/androidsdk/40/cmdline-tools/bin/sdkmanager --sdk_root=$ANDROID_HOME"
+
+$sdkmanager --list
+$sdkmanager --install "platforms;android-30"
+$sdkmanager --install "build-tools;30.0.2"
+$sdkmanager --install "ndk;21.3.6528147"
+$sdkmanager --list
+
+#
+# add these to .profile
+#
+export ANDROID_HOME=~/androidsdk
+export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/21.3.6528147
+export PATH=$PATH:$ANDROID_HOME/ndk/21.3.6528147
+export PATH=$PATH:$ANDROID_HOME/tools
+export PATH=$PATH:$ANDROID_HOME/platform-tools
+
+==============================
+CONFIGURING THE DEVELOPMENT SYSTEM (FEDORA)
 ==============================
 
 Using snap, get androidsdk tool (aka sdkmanager):
