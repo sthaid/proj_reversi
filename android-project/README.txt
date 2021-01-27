@@ -42,13 +42,13 @@ sudo apt install ant
 #
 mkdir ~/androidsdk
 export ANDROID_HOME=~/androidsdk
-sdkmanager="/snap/androidsdk/40/cmdline-tools/bin/sdkmanager --sdk_root=$ANDROID_HOME"
+asdk="androidsdk --sdk_root=$ANDROID_HOME"
 
-$sdkmanager --list
-$sdkmanager --install "platforms;android-30"
-$sdkmanager --install "build-tools;30.0.2"
-$sdkmanager --install "ndk;21.3.6528147"
-$sdkmanager --list
+$asdk --list
+$asdk --install "platforms;android-30"
+$asdk --install "build-tools;30.0.2"
+$asdk --install "ndk;21.3.6528147"
+$asdk --list
 
 #
 # add these to .profile
