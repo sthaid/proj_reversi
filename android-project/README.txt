@@ -37,23 +37,19 @@ sudo apt install openjdk-8-jdk-headless
 sudo apt install ant
 
 #
-# run sdkmanager to install android platform, build-tools, and ndk;
-# these will install under $ANDROID_HOME
+# run androidsdk to install android platform, build-tools, and ndk;
+# these will install under ~/AndroidSDK
 #
-mkdir ~/androidsdk
-export ANDROID_HOME=~/androidsdk
-asdk="androidsdk --sdk_root=$ANDROID_HOME"
-
-$asdk --list
-$asdk --install "platforms;android-30"
-$asdk --install "build-tools;30.0.2"
-$asdk --install "ndk;21.3.6528147"
-$asdk --list
+androidsdk --list
+androidsdk --install "platforms;android-30"
+androidsdk --install "build-tools;30.0.2"
+androidsdk --install "ndk;21.3.6528147"
+androidsdk --list
 
 #
 # add these to .profile
 #
-export ANDROID_HOME=~/androidsdk
+export ANDROID_HOME=~/AndroidSDK
 export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/21.3.6528147
 export PATH=$PATH:$ANDROID_HOME/ndk/21.3.6528147
 export PATH=$PATH:$ANDROID_HOME/tools
